@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using McIntoshHotshots.Components;
 using McIntoshHotshots.db;
+using McIntoshHotshots.Factory;
+using McIntoshHotshots.Repo;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,14 @@ builder.Services.AddRazorComponents()
 // Configure the database context
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddSingleton<IDbConnectionFactory>(sp =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    return new DbConnectionFactory(connectionString);
+});
+
+builder.Services.AddScoped<IPlayerRepo, PlayerRepo>();
 
 // Add Identity services
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
