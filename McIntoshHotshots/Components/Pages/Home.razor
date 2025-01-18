@@ -1,4 +1,7 @@
 ﻿@page "/"
+@using McIntoshHotshots.Model
+@using McIntoshHotshots.Repo
+@inject IPlayerRepo _playerRepo
 
 <PageTitle>McIntosh Hotshots</PageTitle>
 
@@ -71,3 +74,16 @@
     <div style="width: 100%; max-width: 90rem; height: 0rem; border: 0.0625rem rgba(0, 0, 0, 0.10) solid"></div>
   </div>
 </div>
+
+@code
+{
+  protected override async Task OnInitializedAsync()
+  {
+    var x = await _playerRepo.GetPlayersAsync();
+    foreach (PlayerModel playerModel in x)
+    {
+      Console.WriteLine(playerModel.Name);
+    }
+
+  }
+}
