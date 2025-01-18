@@ -1,0 +1,77 @@
+# Ignore build outputs
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+appsettings.Development.json
+
+# Rider files
+.idea/
+*.iml
+.idea/modules.xml
+.idea/*.iml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/dataSources/
+.idea/dataSources.ids
+.idea/dataSources.local.xml
+.idea/sqlDataSources.xml
+.idea/dynamic.xml
+.idea/uiDesigner.xml
+.idea/vcs.xml
+.idea/httpRequests/
+.idea/shelf/
+.idea/libraries/
+.idea/.idea/
+
+# ASP.NET Core specific files
+appsettings*.json
+appsettings.Development.json
+
+# Log files
+*.log
+
+# Visual Studio Code
+.vscode/
+
+# npm packages (if any)
+node_modules/
+
+# Docker
+docker-compose.override.yml
+*.docker-compose
+
+# Generated files
+wwwroot/
+
+# Secrets
+secrets.json
+
+# Database
+*.db
+*.mdf
+*.ldf
+
+# EF Core migrations
+Migrations/
+
+# Logs
+logs/
+*.log
+
+# Backup files
+*.bak
+*.swp
+*~
+
+# Environment variables
+.env
+
+# macOS specific
+.DS_Store

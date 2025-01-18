@@ -1,0 +1,6 @@
+﻿services:
+  mcintoshhotshots:
+    image: mcintoshhotshots
+    build:
+      context: .
+      dockerfile: McIntoshHotshots/Dockerfile
