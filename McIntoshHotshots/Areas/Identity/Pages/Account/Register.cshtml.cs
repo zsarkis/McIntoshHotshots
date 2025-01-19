@@ -98,11 +98,19 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
             /// <summary>
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
-            /// </summary>
+            /// </summary> 
             [DataType(DataType.Password)]
             [Display(Name = "Confirm password")]
             [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
             public string ConfirmPassword { get; set; }
+            
+            [Required]
+            [Display(Name = "Name")]
+            public string Name { get; set; }
+            
+            [Phone(ErrorMessage = "The Phone field is not a valid phone number.")]
+            [Display(Name = "Phone")]
+            public string Phone { get; set; }
         }
 
 
@@ -123,6 +131,7 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+                user.PhoneNumber = Input.Phone;
                 var result = await _userManager.CreateAsync(user, Input.Password);
 
                 if (result.Succeeded)
@@ -149,9 +158,8 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
                     var playerModel = new PlayerModel()
                     {
                         UserId = userId,
-                        Name = user.UserName,
+                        Name = Input.Name,
                         Preferences = JsonSerializer.Serialize(defaultNotifications),
-
                     };
                     await _playerRepo.InsertPlayerAsync(playerModel);
 
