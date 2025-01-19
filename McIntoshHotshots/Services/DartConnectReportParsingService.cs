@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using PuppeteerSharp;
 
@@ -6,14 +7,61 @@ namespace McIntoshHotshots.Services;
 
 public interface IDartConnectReportParsingService
 {
-    Task ParseDartConnectReport(string url);
+    Task ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId);
+    Task ParseDartConnectLegDetailFromReport(string url);
 }
 
 public class DartConnectReportParsingService : IDartConnectReportParsingService
 {
     //TODO: re-write this in python and stick it in a lambda
-    public async Task ParseDartConnectReport(string url)
+    public async Task ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId)
     {
+        string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)games", "matches");var browserFetcher = new BrowserFetcher();
+        await browserFetcher.DownloadAsync();
+
+        // Launch Puppeteer
+        using var browser = await Puppeteer.LaunchAsync(new LaunchOptions
+        {
+            Headless = true
+        });
+        using var page = await browser.NewPageAsync();
+
+        // Navigate to the page
+        await page.GoToAsync(updatedUrl);
+
+        Thread.Sleep(500);
+        
+        // Select all elements where the class contains "turn_stats"
+        var elements = await page.QuerySelectorAllAsync("[class*='matchHeaderStats']");
+
+        var parsedData = new List<string>(); // Store only Column 3 values
+
+        foreach (var row in elements)
+        {
+            var cells = await row.QuerySelectorAllAsync("td");
+            if (cells.Length > 2)  // Ensure there are at least 3 columns
+            {
+                // Extract content from Column 3 (index 2)
+                var column3Content = await cells[2].EvaluateFunctionAsync<string>("el => el.textContent.trim()");
+                parsedData.Add(column3Content);
+            }
+        }
+
+        // Print the parsed Column 3 data
+        Console.WriteLine("Match Length");
+        foreach (var value in parsedData)
+        {
+            Console.WriteLine(value);
+        }
+        
+        //TODO: get the rest out from the table under the digital steel banner
+    
+        await browser.CloseAsync();
+    }
+    
+    public async Task ParseDartConnectLegDetailFromReport(string url)
+    {
+        string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)matches", "games");
         // Download Chromium manually with a specific revision
         var browserFetcher = new BrowserFetcher();
         await browserFetcher.DownloadAsync();
@@ -26,7 +74,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         using var page = await browser.NewPageAsync();
 
         // Navigate to the page
-        await page.GoToAsync(url);
+        await page.GoToAsync(updatedUrl);
 
         Thread.Sleep(500);
         
