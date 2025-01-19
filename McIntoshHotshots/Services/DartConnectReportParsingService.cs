@@ -6,16 +6,14 @@ namespace McIntoshHotshots.Services;
 
 public interface IDartConnectReportParsingService
 {
-    Task ParseDartConnectReport();
+    Task ParseDartConnectReport(string url);
 }
 
 public class DartConnectReportParsingService : IDartConnectReportParsingService
 {
     //TODO: re-write this in python and stick it in a lambda
-    public async Task ParseDartConnectReport()
+    public async Task ParseDartConnectReport(string url)
     {
-        var url = "https://recap.dartconnect.com/games/6785d51af63413a02a9be35b";
-        
         // Download Chromium manually with a specific revision
         var browserFetcher = new BrowserFetcher();
         await browserFetcher.DownloadAsync();
