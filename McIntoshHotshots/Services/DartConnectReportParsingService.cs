@@ -1,7 +1,9 @@
 using System;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using McIntoshHotshots.Model;
 using PuppeteerSharp;
+using McIntoshHotshots.Repo;
 
 namespace McIntoshHotshots.Services;
 
@@ -13,9 +15,19 @@ public interface IDartConnectReportParsingService
 
 public class DartConnectReportParsingService : IDartConnectReportParsingService
 {
+
+    IPlayerRepo _playerRepo;
+    
+    public DartConnectReportParsingService(IPlayerRepo playerRepo)
+    {
+        _playerRepo = playerRepo;
+    }
     //TODO: re-write this in python and stick it in a lambda
     public async Task ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId)
     {
+        var homePlayer = await _playerRepo.GetPlayerByIdAsync(homePlayerId);
+        var awayPlayer = await _playerRepo.GetPlayerByIdAsync(awayPlayerId);
+        
         string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)games", "matches");var browserFetcher = new BrowserFetcher();
         await browserFetcher.DownloadAsync();
 
@@ -55,12 +67,54 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         }
         
         //TODO: get the rest out from the table under the digital steel banner
+
+        var table = await page.QuerySelectorAsync("table.w-full.border.border-\\[\\#666\\]");
+        
+        if (table != null)
+        {
+            var rows = await table.QuerySelectorAllAsync("tbody tr");
+            var parsedTableData = new List<Dictionary<string, string>>();
+
+            foreach (var row in rows)
+            {
+                var cells = await row.QuerySelectorAllAsync("td");
+                var rowData = new Dictionary<string, string>();
+
+                for (int i = 0; i < cells.Length; i++)
+                {
+                    var cellContent = await cells[i].EvaluateFunctionAsync<string>("el => el.textContent.trim()");
+                    rowData[$"Column {i + 1}"] = cellContent;
+                }
+
+                parsedTableData.Add(rowData);
+            }
+
+            // Print the parsed data for debugging
+            foreach (var row in parsedTableData)
+            {
+                //2nd (0 enum) row has a player name + legs won + avg (cols 1 + 3 + 9)
+                //3rd (0 enum) row has a player name + legs won + avg (cols 1 + 3 + 9)
+                //get player name and compare with player object name/email and find best fit for home/away assignments
+                Console.WriteLine("Row:");
+                foreach (var kvp in row)
+                {
+                    Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+                }
+
+                Console.WriteLine("--------------------");
+            }
+        }
+
     
         await browser.CloseAsync();
+        
+        //TODO: return match_id after it has been created
     }
     
     public async Task ParseDartConnectLegDetailFromReport(string url)
     {
+        //TODO: pass in match ID so that you can update the cork winner PID
+
         string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)matches", "games");
         // Download Chromium manually with a specific revision
         var browserFetcher = new BrowserFetcher();
