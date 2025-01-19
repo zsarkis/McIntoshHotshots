@@ -1,6 +1,8 @@
 ﻿@page "/"
 @using McIntoshHotshots.Model
 @using McIntoshHotshots.Repo
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider _authenticationStateProvider
 @inject IPlayerRepo _playerRepo
 
 <PageTitle>McIntosh Hotshots</PageTitle>
@@ -79,11 +81,21 @@
 {
   protected override async Task OnInitializedAsync()
   {
-    var x = await _playerRepo.GetPlayersAsync();
-    foreach (PlayerModel playerModel in x)
-    {
-      Console.WriteLine(playerModel.Name);
-    }
+    var user = (await _authenticationStateProvider.GetAuthenticationStateAsync()).User;
 
+    if (user.Identity?.IsAuthenticated ?? false)
+    {
+      var roles = user.Claims
+        .Where(c => c.Type == "role")
+        .Select(c => c.Value)
+        .ToList();
+
+      Console.WriteLine($"User: {user.Identity.Name}");
+      Console.WriteLine($"Roles: {string.Join(", ", roles)}");
+    }
+    else
+    {
+      Console.WriteLine("User is not authenticated.");
+    }
   }
 }
