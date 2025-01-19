@@ -39,7 +39,8 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
 
         int rowCount = 0;
         bool runAfter = false;
-                
+        int gameCount = 0;
+        
         foreach (var row in elements)
         {
             var cells = await row.QuerySelectorAllAsync("td");
@@ -73,6 +74,18 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                 {
                     rowData[$"Column 8"] = rowData[$"Column 8"] + " Started!";
                 }
+                
+                if (int.TryParse(rowData[$"Column 3"].Trim(), out int col3) &&
+                    int.TryParse(rowData[$"Column 4"].Trim(), out int col4) &&
+                    int.TryParse(rowData[$"Column 6"].Trim(), out int col6) &&
+                    int.TryParse(rowData[$"Column 7"].Trim(), out int col7))
+                {
+                    if (col3 + col4 == 501 && col6 + col7 == 501)
+                    {
+                        ++gameCount;
+                    }
+                }
+                rowData[$"Game"] = gameCount.ToString();
                 parsedData.Add(rowData);
             }
             rowCount++;
