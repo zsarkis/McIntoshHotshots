@@ -1,22 +1,140 @@
 ﻿@page "/tournament-manager"
+@using McIntoshHotshots.Model
+@using McIntoshHotshots.Services
 @using Microsoft.AspNetCore.Authorization
 @rendermode InteractiveServer
 @attribute [Authorize(Policy = "AdminOnly")]
+@inject ITournamentService _tournamentService
 
-<PageTitle>sup blood</PageTitle>
+<PageTitle>Tournament Manager</PageTitle>
 
-<h1>Counter</h1>
+<h1>Tournament Manager</h1>
 
-<p role="status">Current count: @currentCount</p>
+<h2>@(SelectedTournament == null ? "Create a New Tournament" : "Update Tournament")</h2>
 
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+<div>
+    <label for="tournamentDate">Tournament Date:</label>
+    <input type="date" id="tournamentDate" @bind="TournamentDate" class="form-control" />
+</div>
+
+<div class="mt-3">
+    <label for="maxAttendees">Maximum Number of Attendees:</label>
+    <input type="number" id="maxAttendees" @bind="MaxAttendees" class="form-control" min="1" max="1000" />
+</div>
+
+<div class="mt-3">
+    @if (SelectedTournament == null)
+    {
+        <button class="btn btn-success" @onclick="CreateTournament">Create Tournament</button>
+    }
+    else
+    {
+        <button class="btn btn-primary" @onclick="UpdateTournament">Update Tournament</button>
+        <button class="btn btn-secondary ms-2" @onclick="ClearSelection">Cancel</button>
+    }
+</div>
+
+@if (TournamentCreated)
+{
+    <div class="alert alert-success mt-3">
+        Tournament successfully @(SelectedTournament == null ? "created" : "updated") for @TournamentDate with a maximum of @MaxAttendees attendees.
+    </div>
+}
+
+<h2 class="mt-5">Tournaments</h2>
+
+@if (UpcomingTournaments == null)
+{
+    <p>Loading tournaments...</p>
+}
+else if (!UpcomingTournaments.Any())
+{
+    <p>No upcoming tournaments found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Max Attendees</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var tournament in UpcomingTournaments)
+        {
+            <tr>
+                <td>@tournament.Date.ToString("yyyy-MM-dd")</td>
+                <td>@tournament.MaxAttendees</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" @onclick="() => SelectTournament(tournament)">Edit</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
 
 @code {
-    private int currentCount = 0;
+    private DateTime TournamentDate = DateTime.Today;
+    private int MaxAttendees = 8;
+    private bool TournamentCreated = false;
+    private List<TournamentModel> UpcomingTournaments;
+    private TournamentModel SelectedTournament = null;
 
-    private void IncrementCount()
+    protected override async Task OnInitializedAsync()
     {
-        currentCount++;
+        await LoadTournamentsAsync();
     }
 
+    private async Task LoadTournamentsAsync()
+    {
+        UpcomingTournaments = await _tournamentService.GetTournamentsAsync();
+    }
+
+    private async Task CreateTournament()
+    {
+        var tournament = new TournamentModel
+        {
+            Date = TournamentDate,
+            MaxAttendees = MaxAttendees
+        };
+
+        await _tournamentService.CreateTournamentAsync(tournament);
+        TournamentCreated = true;
+
+        await LoadTournamentsAsync();
+        ClearSelection();
+    }
+
+    private async Task UpdateTournament()
+    {
+        if (SelectedTournament != null)
+        {
+            SelectedTournament.Date = TournamentDate;
+            SelectedTournament.MaxAttendees = MaxAttendees;
+
+            await _tournamentService.UpdateTournamentAsync(SelectedTournament);
+            TournamentCreated = true;
+
+            await LoadTournamentsAsync();
+            ClearSelection();
+        }
+    }
+
+    private void SelectTournament(TournamentModel tournament)
+    {
+        SelectedTournament = tournament;
+        TournamentDate = tournament.Date;
+        MaxAttendees = tournament.MaxAttendees;
+    }
+
+    private void ClearSelection()
+    {
+        SelectedTournament = null;
+        TournamentDate = DateTime.Today;
+        MaxAttendees = 8;
+        TournamentCreated = false;
+    }
 }
