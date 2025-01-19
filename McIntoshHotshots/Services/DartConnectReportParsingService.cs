@@ -154,8 +154,9 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         Thread.Sleep(500);
         
         // Select elements with the class 'turn_stats' and also rows with class 'bg-[#eeeeee]'
-        var elements = await page.QuerySelectorAllAsync("tr[class*='turn_stats'], tr[class='bg-\\[\\#eeeeee\\]']");
-        
+        // var elements = await page.QuerySelectorAllAsync("tr[class*='turn_stats'], tr[class='bg-\\[\\#eeeeee\\]']");
+        var elements = await page.QuerySelectorAllAsync("tr[class*='turn_stats'], tr[class='bg-\\[\\#eeeeee\\]'], tr[class='text-xl bg-\\[\\#434343\\] text-white']");
+
         //if you grab every row where the middle col says 3 Dart Avg and determine who started the leg (via green marker)
         //you can sort out how many darts home + away threw
         //can grab the rest from the leg number indicator? might be easier to lump this in with the detail
@@ -179,7 +180,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                 {
                     var cellContent = await cells[i].EvaluateFunctionAsync<string>("el => el.textContent.trim()");
                     var className = await cells[i].EvaluateFunctionAsync<string>("el => el.getAttribute('class')");
-                    if (rowCount == 1 && !string.IsNullOrEmpty(className) && className.Contains("!bg-[green]"))
+                    if (rowCount == 2 && !string.IsNullOrEmpty(className) && className.Contains("!bg-[green]"))
                     {
                         if (i == 3)
                         {
@@ -203,7 +204,6 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                             runAfter = true;
                         }
                     }
-
                     
                     // Use column indexes or infer based on class
                     rowData[$"Column {i + 1}"] = cellContent;
@@ -223,6 +223,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     if (col3 + col4 == 501 && col6 + col7 == 501)
                     {
                         ++gameCount;
+                        parsedData.Last()["Game"] = gameCount.ToString();
                         currentLeg = new LegModel();
                         currentLeg.LegNumber = gameCount;
                     }
