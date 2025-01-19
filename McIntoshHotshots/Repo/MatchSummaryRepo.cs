@@ -6,10 +6,10 @@ namespace McIntoshHotshots.Repo;
 
 public interface IMatchSummaryRepo
 {
-    Task<MatchSummary> GetMatchSummaryByIdAsync(int id);
-    Task<IEnumerable<MatchSummary>> GetMatchSummariesAsync();
-    Task<int> InsertMatchSummaryAsync(MatchSummary matchSummary);
-    Task<int> UpdateMatchSummaryAsync(MatchSummary matchSummary);
+    Task<MatchSummaryModel> GetMatchSummaryByIdAsync(int id);
+    Task<IEnumerable<MatchSummaryModel>> GetMatchSummariesAsync();
+    Task<int> InsertMatchSummaryAsync(MatchSummaryModel matchSummary);
+    Task<int> UpdateMatchSummaryAsync(MatchSummaryModel matchSummary);
 }
 
 public class MatchSummaryRepo : IMatchSummaryRepo
@@ -21,14 +21,29 @@ public class MatchSummaryRepo : IMatchSummaryRepo
         _connectionFactory = connectionFactory;
     }
 
-    public async Task<MatchSummary> GetMatchSummaryByIdAsync(int id)
+    public async Task<MatchSummaryModel> GetMatchSummaryByIdAsync(int id)
     {
         using var connection = _connectionFactory.CreateConnection();
-        var query = "SELECT * FROM match_summary WHERE id = @Id";
-        return await connection.QueryFirstOrDefaultAsync<MatchSummary>(query, new { Id = id });
+        var query = @"
+        SELECT 
+            id AS Id,
+            url_to_recap AS UrlToRecap,
+            home_player_id AS HomePlayerId,
+            away_player_id AS AwayPlayerId,
+            home_set_average AS HomeSetAverage,
+            away_set_average AS AwaySetAverage,
+            home_legs_won AS HomeLegsWon,
+            away_legs_won AS AwayLegsWon,
+            time_elapsed AS TimeElapsed,
+            cork_winner_player_id AS CorkWinnerPlayerId
+        FROM match_summary 
+        WHERE id = @Id";
+
+        return await connection.QueryFirstOrDefaultAsync<MatchSummaryModel>(query, new { Id = id });
     }
 
-    public async Task<IEnumerable<MatchSummary>> GetMatchSummariesAsync()
+
+    public async Task<IEnumerable<MatchSummaryModel>> GetMatchSummariesAsync()
     {
         using var connection = _connectionFactory.CreateConnection();
         var query = @"
@@ -45,36 +60,36 @@ public class MatchSummaryRepo : IMatchSummaryRepo
                     cork_winner_player_id AS CorkWinnerPlayerId
                 FROM match_summary";
 
-        return await connection.QueryAsync<MatchSummary>(query);
+        return await connection.QueryAsync<MatchSummaryModel>(query);
     }
 
-    public async Task<int> InsertMatchSummaryAsync(MatchSummary matchSummary)
+    public async Task<int> InsertMatchSummaryAsync(MatchSummaryModel matchSummary)
     {
         using var connection = _connectionFactory.CreateConnection();
         var query = @"
-                INSERT INTO match_summary (
-                    url_to_recap, 
-                    home_player_id, 
-                    away_player_id, 
-                    home_set_average, 
-                    away_set_average, 
-                    home_legs_won, 
-                    away_legs_won, 
-                    time_elapsed, 
-                    cork_winner_player_id
-                ) VALUES (
-                    @UrlToRecap, 
-                    @HomePlayerId, 
-                    @AwayPlayerId, 
-                    @HomeSetAverage, 
-                    @AwaySetAverage, 
-                    @HomeLegsWon, 
-                    @AwayLegsWon, 
-                    @TimeElapsed, 
-                    @CorkWinnerPlayerId
-                )";
+        INSERT INTO match_summary (
+            url_to_recap, 
+            home_player_id, 
+            away_player_id, 
+            home_set_average, 
+            away_set_average, 
+            home_legs_won, 
+            away_legs_won, 
+            time_elapsed, 
+            cork_winner_player_id
+        ) VALUES (
+            @UrlToRecap, 
+            @HomePlayerId, 
+            @AwayPlayerId, 
+            @HomeSetAverage, 
+            @AwaySetAverage, 
+            @HomeLegsWon, 
+            @AwayLegsWon, 
+            @TimeElapsed, 
+            @CorkWinnerPlayerId
+        ) RETURNING id;";  // Return the generated ID
 
-        return await connection.ExecuteAsync(query, new
+        return await connection.ExecuteScalarAsync<int>(query, new
         {
             matchSummary.UrlToRecap,
             matchSummary.HomePlayerId,
@@ -88,7 +103,8 @@ public class MatchSummaryRepo : IMatchSummaryRepo
         });
     }
 
-    public async Task<int> UpdateMatchSummaryAsync(MatchSummary matchSummary)
+
+    public async Task<int> UpdateMatchSummaryAsync(MatchSummaryModel matchSummary)
     {
         using var connection = _connectionFactory.CreateConnection();
         var query = @"

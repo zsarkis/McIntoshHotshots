@@ -10,7 +10,7 @@ namespace McIntoshHotshots.Services;
 public interface IDartConnectReportParsingService
 {
     Task<int>  ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId);
-    Task ParseDartConnectLegDetailFromReport(string url);
+    Task ParseDartConnectLegWithDetailFromReport(MatchSummaryModel matchSummary);
 }
 
 public class DartConnectReportParsingService : IDartConnectReportParsingService
@@ -30,13 +30,14 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
     {
         var homePlayer = await _playerRepo.GetPlayerByIdAsync(homePlayerId);
         var awayPlayer = await _playerRepo.GetPlayerByIdAsync(awayPlayerId);
-        var matchSummary = new MatchSummary();
+        var matchSummary = new MatchSummaryModel();
         
         matchSummary.UrlToRecap = url;
         matchSummary.HomePlayerId = homePlayerId;
         matchSummary.AwayPlayerId = awayPlayerId;
         
-        string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)games", "matches");var browserFetcher = new BrowserFetcher();
+        string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)games", "matches");
+        var browserFetcher = new BrowserFetcher();
         await browserFetcher.DownloadAsync();
 
         // Launch Puppeteer
@@ -121,13 +122,6 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                 //2nd (0 enum) row has a player name + legs won + avg (cols 1 + 3 + 9)
                 //3rd (0 enum) row has a player name + legs won + avg (cols 1 + 3 + 9)
                 //get player name and compare with player object name/email and find best fit for home/away assignments
-                Console.WriteLine("Row:");
-                foreach (var kvp in row)
-                {
-                    Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
-                }
-
-                Console.WriteLine("--------------------");
                 rowCount++;
             }
         }
@@ -138,12 +132,11 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         
         return matchId;
     }
-    
-    public async Task ParseDartConnectLegDetailFromReport(string url)
-    {
-        //TODO: pass in match ID so that you can update the cork winner PID
 
-        string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)matches", "games");
+    public async Task ParseDartConnectLegWithDetailFromReport(MatchSummaryModel matchSummary)
+    {
+        //TODO: new up leg
+        string updatedUrl = Regex.Replace(matchSummary.UrlToRecap, @"(?<=recap\.dartconnect\.com/)matches", "games");
         // Download Chromium manually with a specific revision
         var browserFetcher = new BrowserFetcher();
         await browserFetcher.DownloadAsync();
@@ -160,14 +153,19 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
 
         Thread.Sleep(500);
         
-        // Select all elements where the class contains "turn_stats"
-        var elements = await page.QuerySelectorAllAsync("[class*='turn_stats']");
+        // Select elements with the class 'turn_stats' and also rows with class 'bg-[#eeeeee]'
+        var elements = await page.QuerySelectorAllAsync("tr[class*='turn_stats'], tr[class='bg-\\[\\#eeeeee\\]']");
+        
+        //if you grab every row where the middle col says 3 Dart Avg and determine who started the leg (via green marker)
+        //you can sort out how many darts home + away threw
+        //can grab the rest from the leg number indicator? might be easier to lump this in with the detail
 
         var parsedData = new List<Dictionary<string, string>>();
 
         int rowCount = 0;
         bool runAfter = false;
         int gameCount = 0;
+        LegModel currentLeg = new LegModel();
         
         foreach (var row in elements)
         {
@@ -181,10 +179,23 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                 {
                     var cellContent = await cells[i].EvaluateFunctionAsync<string>("el => el.textContent.trim()");
                     var className = await cells[i].EvaluateFunctionAsync<string>("el => el.getAttribute('class')");
-                    if (rowCount == 0 && !string.IsNullOrEmpty(className) && className.Contains("!bg-[green]"))
+                    if (rowCount == 1 && !string.IsNullOrEmpty(className) && className.Contains("!bg-[green]"))
                     {
                         if (i == 3)
                         {
+                            var homePlayer = await _playerRepo.GetPlayerByIdAsync(matchSummary.HomePlayerId);
+                            var awayPlayer = await _playerRepo.GetPlayerByIdAsync(matchSummary.AwayPlayerId);
+                            if (rowData[$"Column 2"].Contains(homePlayer.Name) || homePlayer.Name.Contains(rowData[$"Column 2"]))
+                            {
+                                matchSummary.CorkWinnerPlayerId = homePlayer.Id;
+                                await _matchSummaryRepo.UpdateMatchSummaryAsync(matchSummary);
+                            }
+                            else if (rowData[$"Column 2"].Contains(awayPlayer.Name) ||
+                                     awayPlayer.Name.Contains(rowData[$"Column 2"]))
+                            {
+                                matchSummary.CorkWinnerPlayerId = awayPlayer.Id;
+                                await _matchSummaryRepo.UpdateMatchSummaryAsync(matchSummary);
+                            }
                             rowData[$"Column 2"] = rowData[$"Column 2"] + " Started!";
                         }
                         if (i == 5)
@@ -200,6 +211,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
 
                 if (runAfter)
                 {
+                    //TODO: pass in match ID so that you can update the cork winner PID
                     rowData[$"Column 8"] = rowData[$"Column 8"] + " Started!";
                 }
                 
@@ -211,6 +223,8 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     if (col3 + col4 == 501 && col6 + col7 == 501)
                     {
                         ++gameCount;
+                        currentLeg = new LegModel();
+                        currentLeg.LegNumber = gameCount;
                     }
                 }
                 rowData[$"Game"] = gameCount.ToString();
@@ -218,8 +232,9 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
             }
             rowCount++;
         }
-
+        
         // Print the parsed data in a readable format
+        
         foreach (var row in parsedData)
         {
             Console.WriteLine("Row:");
@@ -229,6 +244,8 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
             }
             Console.WriteLine("--------------------");
         }
+        //TODO: new up legs
+        //TODO: new up leg details
         
         await browser.CloseAsync();
 

@@ -5,11 +5,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace McIntoshHotshots.Model;
 
-[Table("match_summary")]
-public class MatchSummary
+public class MatchSummaryModel
 {
-    [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int Id { get; set; }
 
     [Column("url_to_recap")]
