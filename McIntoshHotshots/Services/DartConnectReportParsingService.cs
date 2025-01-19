@@ -9,7 +9,7 @@ namespace McIntoshHotshots.Services;
 
 public interface IDartConnectReportParsingService
 {
-    Task ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId);
+    Task<int>  ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId);
     Task ParseDartConnectLegDetailFromReport(string url);
 }
 
@@ -17,16 +17,24 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
 {
 
     IPlayerRepo _playerRepo;
+    IMatchSummaryRepo _matchSummaryRepo;
     
-    public DartConnectReportParsingService(IPlayerRepo playerRepo)
+    public DartConnectReportParsingService(IPlayerRepo playerRepo, IMatchSummaryRepo matchSummaryRepo)
     {
         _playerRepo = playerRepo;
+        _matchSummaryRepo = matchSummaryRepo;
     }
+    
     //TODO: re-write this in python and stick it in a lambda
-    public async Task ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId)
+    public async Task<int> ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId)
     {
         var homePlayer = await _playerRepo.GetPlayerByIdAsync(homePlayerId);
         var awayPlayer = await _playerRepo.GetPlayerByIdAsync(awayPlayerId);
+        var matchSummary = new MatchSummary();
+        
+        matchSummary.UrlToRecap = url;
+        matchSummary.HomePlayerId = homePlayerId;
+        matchSummary.AwayPlayerId = awayPlayerId;
         
         string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)games", "matches");var browserFetcher = new BrowserFetcher();
         await browserFetcher.DownloadAsync();
@@ -55,17 +63,10 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
             {
                 // Extract content from Column 3 (index 2)
                 var column3Content = await cells[2].EvaluateFunctionAsync<string>("el => el.textContent.trim()");
-                parsedData.Add(column3Content);
+                matchSummary.TimeElapsed = column3Content;
             }
         }
 
-        // Print the parsed Column 3 data
-        Console.WriteLine("Match Length");
-        foreach (var value in parsedData)
-        {
-            Console.WriteLine(value);
-        }
-        
         //TODO: get the rest out from the table under the digital steel banner
 
         var table = await page.QuerySelectorAsync("table.w-full.border.border-\\[\\#666\\]");
@@ -89,9 +90,34 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                 parsedTableData.Add(rowData);
             }
 
+            int rowCount = 0;
             // Print the parsed data for debugging
             foreach (var row in parsedTableData)
             {
+                if (rowCount == 2)
+                {
+                    //TODO: Could be a corner case where players with the same last name match up, just try to make sure you assign the correct players to home/away
+                    if (homePlayer.Name.Contains(row["Column 1"]) && !awayPlayer.Name.Contains(row["Column 1"]))
+                    {
+                        matchSummary.HomePlayerId = homePlayerId;
+                        matchSummary.AwayPlayerId = awayPlayerId;
+                        matchSummary.HomeLegsWon = Int32.Parse(row["Column 3"]);
+                        matchSummary.HomeSetAverage = Double.Parse(row["Column 9"]);
+                    }
+                    else if (awayPlayer.Name.Contains(row["Column 1"]) && !homePlayer.Name.Contains(row["Column 1"]))
+                    {
+                        matchSummary.HomePlayerId = awayPlayerId;
+                        matchSummary.AwayPlayerId = homePlayerId;
+                        matchSummary.HomeLegsWon = Int32.Parse(row["Column 3"]);
+                        matchSummary.HomeSetAverage = Double.Parse(row["Column 9"]);
+                    }
+                }
+
+                if (rowCount == 3 && matchSummary is { AwayLegsWon: 0, AwaySetAverage: 0 })
+                {
+                    matchSummary.AwayLegsWon = Int32.Parse(row["Column 3"]);
+                    matchSummary.AwaySetAverage = Double.Parse(row["Column 9"]);
+                }
                 //2nd (0 enum) row has a player name + legs won + avg (cols 1 + 3 + 9)
                 //3rd (0 enum) row has a player name + legs won + avg (cols 1 + 3 + 9)
                 //get player name and compare with player object name/email and find best fit for home/away assignments
@@ -102,13 +128,15 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                 }
 
                 Console.WriteLine("--------------------");
+                rowCount++;
             }
         }
 
-    
         await browser.CloseAsync();
+
+        var matchId = await _matchSummaryRepo.InsertMatchSummaryAsync(matchSummary);
         
-        //TODO: return match_id after it has been created
+        return matchId;
     }
     
     public async Task ParseDartConnectLegDetailFromReport(string url)
