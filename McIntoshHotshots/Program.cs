@@ -4,6 +4,7 @@ using McIntoshHotshots.Components;
 using McIntoshHotshots.db;
 using McIntoshHotshots.Factory;
 using McIntoshHotshots.Repo;
+using McIntoshHotshots.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddScoped<IPlayerRepo, PlayerRepo>();
+builder.Services.AddScoped<ITournamentRepo, TournamentRepo>();
+builder.Services.AddScoped<ITournamentService, TournamentService>();
 
 // Add Identity services
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
