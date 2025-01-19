@@ -8,8 +8,11 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using McIntoshHotshots.Model;
+using McIntoshHotshots.Repo;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -29,13 +32,15 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
         private readonly IUserEmailStore<IdentityUser> _emailStore;
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
+        private readonly IPlayerRepo _playerRepo;
 
         public RegisterModel(
             UserManager<IdentityUser> userManager,
             IUserStore<IdentityUser> userStore,
             SignInManager<IdentityUser> signInManager,
             ILogger<RegisterModel> logger,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            IPlayerRepo playerRepo)
         {
             _userManager = userManager;
             _userStore = userStore;
@@ -43,6 +48,7 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
             _signInManager = signInManager;
             _logger = logger;
             _emailSender = emailSender;
+            _playerRepo = playerRepo;
         }
 
         /// <summary>
@@ -113,6 +119,7 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
             if (ModelState.IsValid)
             {
                 var user = CreateUser();
+                //TODO: add phone and name to input model?
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
@@ -123,6 +130,31 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
                     _logger.LogInformation("User created a new account with password.");
 
                     var userId = await _userManager.GetUserIdAsync(user);
+                    var defaultNotifications = new List<NotificationPreference>
+                    {
+                        new NotificationPreference
+                        {
+                            Type = "email",
+                            OptedIn = true,
+                            Instances = new List<string> { "event_reminders", "new_event_for_interest" }
+                        },
+                        new NotificationPreference
+                        {
+                            Type = "sms",
+                            OptedIn = false,
+                            Instances = new List<string> { "event_reminders", "new_event_for_interest" }
+                        }
+                    };
+
+                    var playerModel = new PlayerModel()
+                    {
+                        UserId = userId,
+                        Name = user.UserName,
+                        Preferences = JsonSerializer.Serialize(defaultNotifications),
+
+                    };
+                    await _playerRepo.InsertPlayerAsync(playerModel);
+
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                     code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
                     var callbackUrl = Url.Page(
@@ -141,7 +173,11 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
                     else
                     {
                         await _signInManager.SignInAsync(user, isPersistent: false);
-                        return LocalRedirect(returnUrl);
+                        if (returnUrl != "/Identity/Account/Manage")
+                        {
+                            return LocalRedirect(returnUrl);
+                        }
+                        return LocalRedirect("/");
                     }
                 }
                 foreach (var error in result.Errors)
