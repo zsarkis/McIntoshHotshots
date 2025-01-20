@@ -257,8 +257,9 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     {
                         var match1 = Regex.Match(rowData[$"Column 1"], @"\((\d+)\)");
                         currentLeg.WinnerId = matchSummary.HomePlayerId;
-                        currentLeg.HomePlayerDartsThrown = ((Int32.Parse(rowData[$"Column 5"]) - 1) * 3) + (3 - Int32.Parse(match1.Groups[1].Value));
-                        if (String.IsNullOrEmpty(rowData[$"Column 4"]))
+                        //TODO: Darts thrown logic is off
+                        currentLeg.HomePlayerDartsThrown = ((Int32.Parse(rowData[$"Column 5"]) - 1) * 3) + Int32.Parse(match1.Groups[1].Value);
+                        if (String.IsNullOrEmpty(rowData[$"Column 6"]))
                         {
                             currentLeg.AwayPlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"]) - 1) * 3;
                         }
@@ -266,7 +267,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         {
                             currentLeg.AwayPlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"])) * 3;
                         }
-                        currentLeg.LegNumber = gameCount + 1;
+                        currentLeg.LegNumber = gameCount;
                         currentLegId = await _legRepo.InsertLegAsync(currentLeg);
                         currentLeg = new LegModel();
                     }                   
@@ -275,7 +276,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         var match9 = Regex.Match(rowData[$"Column 9"], @"\((\d+)\)");
                         currentLeg.WinnerId = matchSummary.AwayPlayerId;
                         currentLeg.AwayPlayerDartsThrown = ((Int32.Parse(rowData[$"Column 5"]) - 1) * 3) + Int32.Parse(match9.Groups[1].Value);
-                        if (String.IsNullOrEmpty(rowData[$"Column 6"]))
+                        if (String.IsNullOrEmpty(rowData[$"Column 4"]))
                         {
                             currentLeg.HomePlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"]) - 1) * 3;
                         }
@@ -283,7 +284,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         {
                             currentLeg.HomePlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"])) * 3;
                         }
-                        currentLeg.LegNumber = gameCount + 1;
+                        currentLeg.LegNumber = gameCount;
                         currentLegId = await _legRepo.InsertLegAsync(currentLeg);
                         currentLeg = new LegModel();
                     }
