@@ -18,11 +18,13 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
 
     IPlayerRepo _playerRepo;
     IMatchSummaryRepo _matchSummaryRepo;
+    ILegRepo _legRepo;
     
-    public DartConnectReportParsingService(IPlayerRepo playerRepo, IMatchSummaryRepo matchSummaryRepo)
+    public DartConnectReportParsingService(IPlayerRepo playerRepo, IMatchSummaryRepo matchSummaryRepo, ILegRepo legRepo)
     {
         _playerRepo = playerRepo;
         _matchSummaryRepo = matchSummaryRepo;
+        _legRepo = legRepo;
     }
     
     //TODO: re-write this in python and stick it in a lambda
@@ -144,17 +146,21 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         // Launch Puppeteer
         using var browser = await Puppeteer.LaunchAsync(new LaunchOptions
         {
-            Headless = true
+            Headless = true,
+            ProtocolTimeout = 300000
         });
         using var page = await browser.NewPageAsync();
 
         // Navigate to the page
-        await page.GoToAsync(updatedUrl);
-
-        Thread.Sleep(500);
+        await page.GoToAsync(updatedUrl, new NavigationOptions
+        {
+            Timeout = 300000,  // Increase timeout to 120 seconds
+            WaitUntil = new[] { WaitUntilNavigation.Load }
+        });
+        
+        await Task.Delay(5000);  // Wait for 5 seconds
         
         // Select elements with the class 'turn_stats' and also rows with class 'bg-[#eeeeee]'
-        // var elements = await page.QuerySelectorAllAsync("tr[class*='turn_stats'], tr[class='bg-\\[\\#eeeeee\\]']");
         var elements = await page.QuerySelectorAllAsync("tr[class*='turn_stats'], tr[class='bg-\\[\\#eeeeee\\]'], tr[class='text-xl bg-\\[\\#434343\\] text-white']");
 
         //if you grab every row where the middle col says 3 Dart Avg and determine who started the leg (via green marker)
@@ -206,13 +212,87 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     }
                     
                     // Use column indexes or infer based on class
+                    if (rowCount == 47)
+                    {
+                        Console.WriteLine("Processing row before issues.");
+                        Console.WriteLine($"Row count: {rowCount}");
+                        Console.WriteLine($"Column index: {i + 1}");
+                        Console.WriteLine($"Cell content length: {cellContent.Length}");
+                        Console.WriteLine($"Cell content: '{cellContent}'");
+                    }
                     rowData[$"Column {i + 1}"] = cellContent;
+                }
+
+                if (rowCount == 47)
+                {
+                    Console.WriteLine("fffffff.");
                 }
 
                 if (runAfter)
                 {
-                    //TODO: pass in match ID so that you can update the cork winner PID
                     rowData[$"Column 8"] = rowData[$"Column 8"] + " Started!";
+                }
+
+                if (rowData["Column 1"].EndsWith("501 SIDO"))
+                {
+                    currentLeg.TimeElapsed = rowData["Column 5"];
+                    if (rowData[$"Column 2"] == "0")
+                    {
+                        currentLeg.WinnerId = matchSummary.HomePlayerId;
+                        currentLeg.LoserScoreRemaining = Int32.Parse(rowData[$"Column 4"]);
+                    }                   
+                    else if (rowData[$"Column 4"] == "0")
+                    {
+                        currentLeg.WinnerId = matchSummary.AwayPlayerId;
+                        currentLeg.LoserScoreRemaining = Int32.Parse(rowData[$"Column 2"]);
+                    }
+                
+                    currentLeg.MatchId = matchSummary.Id;
+                }
+                
+                bool containsDo = false;
+                string pattern = @"DO \((\d+)\)";
+                
+                if (rowData.TryGetValue("Column 9", out string column9Value) && Regex.IsMatch(column9Value, pattern))
+                {
+                    containsDo = true;
+                }
+                
+                if (rowData.TryGetValue("Column 1", out string column1Value) && Regex.IsMatch(column1Value, pattern))
+                {
+                    containsDo = true;
+                }
+                
+                if (containsDo)
+                {
+                    if (rowData[$"Column 4"] == "0")
+                    {
+                        var match1 = Regex.Match(rowData[$"Column 1"], @"\((\d+)\)");
+                        currentLeg.WinnerId = matchSummary.HomePlayerId;
+                        currentLeg.HomePlayerDartsThrown = ((Int32.Parse(rowData[$"Column 5"]) - 1) * 3) + (3 - Int32.Parse(match1.Groups[1].Value));
+                        if (String.IsNullOrEmpty(rowData[$"Column 4"]))
+                        {
+                            currentLeg.AwayPlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"]) - 1) * 3;
+                        }
+                        else
+                        {
+                            currentLeg.AwayPlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"])) * 3;
+                        }
+                    }                   
+                    else if (rowData[$"Column 6"] == "0")
+                    {
+                        var match9 = Regex.Match(rowData[$"Column 9"], @"\((\d+)\)");
+                        currentLeg.WinnerId = matchSummary.AwayPlayerId;
+                        currentLeg.AwayPlayerDartsThrown = ((Int32.Parse(rowData[$"Column 5"]) - 1) * 3) + Int32.Parse(match9.Groups[1].Value);
+                        if (String.IsNullOrEmpty(rowData[$"Column 6"]))
+                        {
+                            currentLeg.HomePlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"]) - 1) * 3;
+                        }
+                        else
+                        {
+                            currentLeg.HomePlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"])) * 3;
+                        }
+                    }
                 }
                 
                 if (int.TryParse(rowData[$"Column 3"].Trim(), out int col3) &&
@@ -224,6 +304,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     {
                         ++gameCount;
                         parsedData.Last()["Game"] = gameCount.ToString();
+                        await _legRepo.InsertLegAsync(currentLeg);
                         currentLeg = new LegModel();
                         currentLeg.LegNumber = gameCount;
                     }
@@ -231,11 +312,11 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                 rowData[$"Game"] = gameCount.ToString();
                 parsedData.Add(rowData);
             }
+            Console.WriteLine("row: " + rowCount.ToString());
             rowCount++;
         }
         
         // Print the parsed data in a readable format
-        
         foreach (var row in parsedData)
         {
             Console.WriteLine("Row:");
@@ -249,6 +330,5 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         //TODO: new up leg details
         
         await browser.CloseAsync();
-
     }
 }
