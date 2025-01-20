@@ -67,7 +67,7 @@ public class LegRepo : ILegRepo
                     @LoserScoreRemaining, 
                     @WinnerId, 
                     @TimeElapsed
-                )";
+                ) RETURNING id;";
 
         return await connection.ExecuteAsync(query, new
         {

@@ -173,6 +173,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         bool runAfter = false;
         int gameCount = 0;
         LegModel currentLeg = new LegModel();
+        int currentLegId = -1;
         
         foreach (var row in elements)
         {
@@ -212,20 +213,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     }
                     
                     // Use column indexes or infer based on class
-                    if (rowCount == 47)
-                    {
-                        Console.WriteLine("Processing row before issues.");
-                        Console.WriteLine($"Row count: {rowCount}");
-                        Console.WriteLine($"Column index: {i + 1}");
-                        Console.WriteLine($"Cell content length: {cellContent.Length}");
-                        Console.WriteLine($"Cell content: '{cellContent}'");
-                    }
                     rowData[$"Column {i + 1}"] = cellContent;
-                }
-
-                if (rowCount == 47)
-                {
-                    Console.WriteLine("fffffff.");
                 }
 
                 if (runAfter)
@@ -278,6 +266,9 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         {
                             currentLeg.AwayPlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"])) * 3;
                         }
+                        currentLegId = await _legRepo.InsertLegAsync(currentLeg);
+                        currentLeg = new LegModel();
+                        currentLeg.LegNumber = gameCount + 1;
                     }                   
                     else if (rowData[$"Column 6"] == "0")
                     {
@@ -292,6 +283,9 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         {
                             currentLeg.HomePlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"])) * 3;
                         }
+                        currentLegId = await _legRepo.InsertLegAsync(currentLeg);
+                        currentLeg = new LegModel();
+                        currentLeg.LegNumber = gameCount + 1;
                     }
                 }
                 
@@ -304,9 +298,6 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     {
                         ++gameCount;
                         parsedData.Last()["Game"] = gameCount.ToString();
-                        await _legRepo.InsertLegAsync(currentLeg);
-                        currentLeg = new LegModel();
-                        currentLeg.LegNumber = gameCount;
                     }
                 }
                 rowData[$"Game"] = gameCount.ToString();
