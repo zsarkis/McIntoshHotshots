@@ -266,9 +266,9 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         {
                             currentLeg.AwayPlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"])) * 3;
                         }
+                        currentLeg.LegNumber = gameCount + 1;
                         currentLegId = await _legRepo.InsertLegAsync(currentLeg);
                         currentLeg = new LegModel();
-                        currentLeg.LegNumber = gameCount + 1;
                     }                   
                     else if (rowData[$"Column 6"] == "0")
                     {
@@ -283,9 +283,9 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         {
                             currentLeg.HomePlayerDartsThrown = (Int32.Parse(rowData[$"Column 5"])) * 3;
                         }
+                        currentLeg.LegNumber = gameCount + 1;
                         currentLegId = await _legRepo.InsertLegAsync(currentLeg);
                         currentLeg = new LegModel();
-                        currentLeg.LegNumber = gameCount + 1;
                     }
                 }
                 
