@@ -33,6 +33,7 @@ builder.Services.AddScoped<IPlayerRepo, PlayerRepo>();
 builder.Services.AddScoped<ITournamentRepo, TournamentRepo>();
 builder.Services.AddScoped<IMatchSummaryRepo, MatchSummaryRepo>();
 builder.Services.AddScoped<ILegRepo, LegRepo>();
+builder.Services.AddScoped<ILegDetailRepo, LegDetailRepo>();
 
 builder.Services.AddScoped<ITournamentService, TournamentService>();
 builder.Services.AddScoped<IDartConnectReportParsingService, DartConnectReportParsingService>();

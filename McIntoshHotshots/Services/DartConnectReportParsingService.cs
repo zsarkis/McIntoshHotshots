@@ -173,6 +173,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         bool runAfter = false;
         int gameCount = 0;
         LegModel currentLeg = new LegModel();
+        LegDetailModel currentLegDetail = new LegDetailModel();
         int currentLegId = -1;
         
         foreach (var row in elements)
