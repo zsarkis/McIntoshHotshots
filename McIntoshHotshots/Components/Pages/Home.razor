@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using McIntoshHotshots.Model
 @using McIntoshHotshots.Repo
+@using McIntoshHotshots.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @inject AuthenticationStateProvider _authenticationStateProvider
 @inject IPlayerRepo _playerRepo
@@ -81,21 +82,5 @@
 {
   protected override async Task OnInitializedAsync()
   {
-    var user = (await _authenticationStateProvider.GetAuthenticationStateAsync()).User;
-
-    if (user.Identity?.IsAuthenticated ?? false)
-    {
-      var roles = user.Claims
-        .Where(c => c.Type == "role")
-        .Select(c => c.Value)
-        .ToList();
-
-      Console.WriteLine($"User: {user.Identity.Name}");
-      Console.WriteLine($"Roles: {string.Join(", ", roles)}");
-    }
-    else
-    {
-      Console.WriteLine("User is not authenticated.");
-    }
   }
 }
