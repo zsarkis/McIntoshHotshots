@@ -210,7 +210,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                             }
                             rowData[$"Column 2"] = rowData[$"Column 2"] + " Started!";
                         }
-                        if (i == 5)
+                        else if (i == 5)
                         {
                             runAfter = true;
                         }
@@ -222,7 +222,21 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
 
                 if (runAfter)
                 {
-                    rowData[$"Column 8"] = rowData[$"Column 8"] + " Started!";
+                    rowData[$"Column 8"] = rowData[$"Column 8"] + " Started!";                            
+                    var homePlayer = await _playerRepo.GetPlayerByIdAsync(matchSummary.HomePlayerId);
+                    var awayPlayer = await _playerRepo.GetPlayerByIdAsync(matchSummary.AwayPlayerId);
+                    if (rowData[$"Column 8"].Contains(homePlayer.Name) || homePlayer.Name.Contains(rowData[$"Column 8"]))
+                    {
+                        matchSummary.CorkWinnerPlayerId = homePlayer.Id;
+                        await _matchSummaryRepo.UpdateMatchSummaryAsync(matchSummary);
+                    }
+                    else if (rowData[$"Column 8"].Contains(awayPlayer.Name) ||
+                             awayPlayer.Name.Contains(rowData[$"Column 8"]))
+                    {
+                        matchSummary.CorkWinnerPlayerId = awayPlayer.Id;
+                        await _matchSummaryRepo.UpdateMatchSummaryAsync(matchSummary);
+                    }
+                    runAfter = false;
                 }
 
                 if (rowData["Column 1"].EndsWith("501 SIDO"))
@@ -242,6 +256,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     currentLeg.MatchId = matchSummary.Id;
                 }
                 
+                string pattern = @"DO \((\d+)\)";
                 // todo: if column 5 is an int then proceed to fill out currentLegDetail and push it to currentLegLegDetail
                 if (rowData.TryGetValue("Column 5", out string value) && int.TryParse(value, out int round))
                 {
@@ -249,8 +264,25 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     currentLegDetail = new LegDetailModel();
                     currentLegDetail.MatchId = matchSummary.Id;
                     currentLegDetail.Score = Int32.TryParse(rowData["Column 3"], out int score) ? score : 0;
-                    //use the fucky regex for the below line
-                    currentLegDetail.DartsUsed = Int32.TryParse(rowData["Column 1"], out int dartsUsed) ? dartsUsed : 3;
+                    if (int.TryParse(rowData["Column 1"], out int dartsUsedHome))
+                    {
+                        // If it's a valid number and greater than 3, cap it at 3
+                        currentLegDetail.DartsUsed = Math.Min(dartsUsedHome, 3);
+                    }
+                    else if (Regex.IsMatch(rowData["Column 1"], pattern, RegexOptions.IgnoreCase))
+                    {
+                        // Extract the number inside parentheses
+                        var match = Regex.Match(rowData["Column 1"], pattern);
+                        if (int.TryParse(match.Groups[1].Value, out int extractedDarts))
+                        {
+                            currentLegDetail.DartsUsed = Math.Min(extractedDarts, 3);
+                        }
+                    }
+                    else
+                    {
+                        // Default to 3 if parsing fails
+                        currentLegDetail.DartsUsed = 3;
+                    }
                     currentLegDetail.TurnNumber = round;
                     currentLegDetail.PlayerId = matchSummary.HomePlayerId;
                     if (int.TryParse(rowData["Column 4"], out int parsedValueHome))
@@ -268,8 +300,26 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     currentLegDetail = new LegDetailModel();
                     currentLegDetail.MatchId = matchSummary.Id;
                     currentLegDetail.Score = Int32.TryParse(rowData["Column 7"], out int scoreAway) ? scoreAway : 0;
-                    //use the fucky regex for the below line
-                    currentLegDetail.DartsUsed = Int32.TryParse(rowData["Column 9"], out int dartsUsedAway) ? dartsUsedAway : 3;
+
+                    if (int.TryParse(rowData["Column 9"], out int dartsUsedAway))
+                    {
+                        // If it's a valid number and greater than 3, cap it at 3
+                        currentLegDetail.DartsUsed = Math.Min(dartsUsedAway, 3);
+                    }
+                    else if (Regex.IsMatch(rowData["Column 9"], pattern, RegexOptions.IgnoreCase))
+                    {
+                        // Extract the number inside parentheses
+                        var match = Regex.Match(rowData["Column 9"], pattern);
+                        if (int.TryParse(match.Groups[1].Value, out int extractedDarts))
+                        {
+                            currentLegDetail.DartsUsed = Math.Min(extractedDarts, 3);
+                        }
+                    }
+                    else
+                    {
+                        // Default to 3 if parsing fails
+                        currentLegDetail.DartsUsed = 3;
+                    }
                     currentLegDetail.TurnNumber = round;
                     currentLegDetail.PlayerId = matchSummary.AwayPlayerId;
                     if (int.TryParse(rowData["Column 6"], out int parsedValueAway))
@@ -312,7 +362,6 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                 }
                 
                 bool containsDo = false;
-                string pattern = @"DO \((\d+)\)";
                 
                 if (rowData.TryGetValue("Column 9", out string column9Value) && Regex.IsMatch(column9Value, pattern))
                 {
