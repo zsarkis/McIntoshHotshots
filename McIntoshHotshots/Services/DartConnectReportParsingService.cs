@@ -9,7 +9,7 @@ namespace McIntoshHotshots.Services;
 
 public interface IDartConnectReportParsingService
 {
-    Task<int>  ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId);
+    Task<int>  ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId, int tournamentId);
     Task ParseDartConnectLegWithDetailFromReport(MatchSummaryModel matchSummary);
 }
 
@@ -30,7 +30,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
     }
     
     //TODO: re-write this in python and stick it in a lambda
-    public async Task<int> ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId)
+    public async Task<int> ParseDartConnectMatchFromReport(string url, int homePlayerId, int awayPlayerId, int tournamentId)
     {
         var homePlayer = await _playerRepo.GetPlayerByIdAsync(homePlayerId);
         var awayPlayer = await _playerRepo.GetPlayerByIdAsync(awayPlayerId);
@@ -39,6 +39,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         matchSummary.UrlToRecap = url;
         matchSummary.HomePlayerId = homePlayerId;
         matchSummary.AwayPlayerId = awayPlayerId;
+        matchSummary.TournamentId = tournamentId;
         
         string updatedUrl = Regex.Replace(url, @"(?<=recap\.dartconnect\.com/)games", "matches");
         var browserFetcher = new BrowserFetcher();

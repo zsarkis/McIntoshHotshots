@@ -35,5 +35,8 @@ public class MatchSummaryModel
 
     [Column("cork_winner_player_id")]
     public int? CorkWinnerPlayerId { get; set; }
+
+    [Column("tournament_id")]
+    public int? TournamentId { get; set; }
 }
 

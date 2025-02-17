@@ -133,7 +133,7 @@ else
                 //TODO: make sure to send the selected tournament ID along to send to postgres
                 //parse out match
                 //do similar parsing but on matches instead of games: https://recap.dartconnect.com/matches/6785d51af63413a02a9be35b
-                var matchId = await _dartConnectReportParsingService.ParseDartConnectMatchFromReport(RecapUrl, SelectedHomePlayerId.Value, SelectedAwayPlayerId.Value); // this has what it needs outside match + leg IDs
+                var matchId = await _dartConnectReportParsingService.ParseDartConnectMatchFromReport(RecapUrl, SelectedHomePlayerId.Value, SelectedAwayPlayerId.Value, SelectedTournament.Id); // this has what it needs outside match + leg IDs
 
                 var match = await _matchRepo.GetMatchSummaryByIdAsync(matchId);
                     //get players by name and find their player_id or select them from a dropdown

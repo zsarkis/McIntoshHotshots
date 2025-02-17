@@ -35,7 +35,8 @@ public class MatchSummaryRepo : IMatchSummaryRepo
             home_legs_won AS HomeLegsWon,
             away_legs_won AS AwayLegsWon,
             time_elapsed AS TimeElapsed,
-            cork_winner_player_id AS CorkWinnerPlayerId
+            cork_winner_player_id AS CorkWinnerPlayerId,
+            tournament_id AS TournamentId
         FROM match_summary 
         WHERE id = @Id";
 
@@ -57,7 +58,8 @@ public class MatchSummaryRepo : IMatchSummaryRepo
                     home_legs_won AS HomeLegsWon,
                     away_legs_won AS AwayLegsWon,
                     time_elapsed AS TimeElapsed,
-                    cork_winner_player_id AS CorkWinnerPlayerId
+                    cork_winner_player_id AS CorkWinnerPlayerId,
+                    tournament_id AS TournamentId
                 FROM match_summary";
 
         return await connection.QueryAsync<MatchSummaryModel>(query);
@@ -76,7 +78,8 @@ public class MatchSummaryRepo : IMatchSummaryRepo
             home_legs_won, 
             away_legs_won, 
             time_elapsed, 
-            cork_winner_player_id
+            cork_winner_player_id,
+            tournament_id
         ) VALUES (
             @UrlToRecap, 
             @HomePlayerId, 
@@ -86,7 +89,8 @@ public class MatchSummaryRepo : IMatchSummaryRepo
             @HomeLegsWon, 
             @AwayLegsWon, 
             @TimeElapsed, 
-            @CorkWinnerPlayerId
+            @CorkWinnerPlayerId,
+            @TournamentId
         ) RETURNING id;";  // Return the generated ID
 
         return await connection.ExecuteScalarAsync<int>(query, new
@@ -99,7 +103,8 @@ public class MatchSummaryRepo : IMatchSummaryRepo
             matchSummary.HomeLegsWon,
             matchSummary.AwayLegsWon,
             matchSummary.TimeElapsed,
-            matchSummary.CorkWinnerPlayerId
+            matchSummary.CorkWinnerPlayerId,
+            matchSummary.TournamentId
         });
     }
 
@@ -118,7 +123,8 @@ public class MatchSummaryRepo : IMatchSummaryRepo
                     home_legs_won = @HomeLegsWon, 
                     away_legs_won = @AwayLegsWon, 
                     time_elapsed = @TimeElapsed, 
-                    cork_winner_player_id = @CorkWinnerPlayerId
+                    cork_winner_player_id = @CorkWinnerPlayerId,
+                    tournament_id = @TournamentId
                 WHERE id = @Id";
 
         return await connection.ExecuteAsync(query, new
@@ -132,7 +138,8 @@ public class MatchSummaryRepo : IMatchSummaryRepo
             matchSummary.HomeLegsWon,
             matchSummary.AwayLegsWon,
             matchSummary.TimeElapsed,
-            matchSummary.CorkWinnerPlayerId
+            matchSummary.CorkWinnerPlayerId,
+            matchSummary.TournamentId
         });
     }
 }
