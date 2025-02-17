@@ -1,6 +1,7 @@
 using Dapper;
 using McIntoshHotshots.Factory;
 using McIntoshHotshots.Model;
+using Npgsql;
 
 namespace McIntoshHotshots.Repo;
 
@@ -9,6 +10,7 @@ public interface ILegDetailRepo
     Task<LegDetailModel> GetLegDetailByIdAsync(int id);
     Task<IEnumerable<LegDetailModel>> GetLegDetailsByLegIdAsync(int legId);
     Task<int> InsertLegDetailAsync(LegDetailModel legDetail);
+    Task<int[]> InsertLegDetailsBatchAsync(IEnumerable<LegDetailModel> legDetails);
     Task<int> UpdateLegDetailAsync(LegDetailModel legDetail);
     Task<int> DeleteLegDetailAsync(int id);
 }
@@ -80,6 +82,65 @@ public class LegDetailRepo : ILegDetailRepo
             legDetail.Score,
             legDetail.DartsUsed
         });
+    }
+    
+    public async Task<int[]> InsertLegDetailsBatchAsync(IEnumerable<LegDetailModel> legDetails)
+    {
+        using var connection = _connectionFactory.CreateConnection() as NpgsqlConnection;
+        if (connection == null)
+            throw new InvalidOperationException("Failed to create a valid PostgreSQL connection.");
+
+        await connection.OpenAsync();  // ✅ FIX: Ensure connection is open before transactions
+
+        using var transaction = await connection.BeginTransactionAsync(); // ✅ FIX: Async transaction start
+        var query = @"
+        INSERT INTO leg_detail (
+            match_id, 
+            leg_id, 
+            turn_number, 
+            player_id, 
+            score_remaining_before_throw, 
+            score, 
+            darts_used
+        ) VALUES (
+            @MatchId, 
+            @LegId, 
+            @TurnNumber, 
+            @PlayerId, 
+            @ScoreRemainingBeforeThrow, 
+            @Score, 
+            @DartsUsed
+        ) RETURNING id;";
+
+        var insertedIds = new List<int>();
+
+        try
+        {
+            foreach (var legDetail in legDetails)
+            {
+                var id = await connection.ExecuteScalarAsync<int>(query, new
+                {
+                    legDetail.MatchId,
+                    legDetail.LegId,
+                    legDetail.TurnNumber,
+                    legDetail.PlayerId,
+                    legDetail.ScoreRemainingBeforeThrow,
+                    legDetail.Score,
+                    legDetail.DartsUsed
+                }, transaction);
+
+                insertedIds.Add(id);
+            }
+
+            await transaction.CommitAsync();  // ✅ FIX: Async commit
+            return insertedIds.ToArray();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();  // ✅ FIX: Async rollback
+            Console.WriteLine($"Error inserting batch: {ex.Message}");
+            throw;
+        }
     }
 
     public async Task<int> UpdateLegDetailAsync(LegDetailModel legDetail)

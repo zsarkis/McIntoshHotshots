@@ -19,12 +19,14 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
     IPlayerRepo _playerRepo;
     IMatchSummaryRepo _matchSummaryRepo;
     ILegRepo _legRepo;
+    ILegDetailRepo _legDetailRepo;
     
-    public DartConnectReportParsingService(IPlayerRepo playerRepo, IMatchSummaryRepo matchSummaryRepo, ILegRepo legRepo)
+    public DartConnectReportParsingService(IPlayerRepo playerRepo, IMatchSummaryRepo matchSummaryRepo, ILegRepo legRepo, ILegDetailRepo legDetailRepo)
     {
         _playerRepo = playerRepo;
         _matchSummaryRepo = matchSummaryRepo;
         _legRepo = legRepo;
+        _legDetailRepo = legDetailRepo;
     }
     
     //TODO: re-write this in python and stick it in a lambda
@@ -173,6 +175,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
         bool runAfter = false;
         int gameCount = 0;
         LegModel currentLeg = new LegModel();
+        List<LegDetailModel> currentLegLegDetail = new List<LegDetailModel>();
         LegDetailModel currentLegDetail = new LegDetailModel();
         int currentLegId = -1;
         
@@ -239,6 +242,75 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     currentLeg.MatchId = matchSummary.Id;
                 }
                 
+                // todo: if column 5 is an int then proceed to fill out currentLegDetail and push it to currentLegLegDetail
+                if (rowData.TryGetValue("Column 5", out string value) && int.TryParse(value, out int round))
+                {
+                    //home
+                    currentLegDetail = new LegDetailModel();
+                    currentLegDetail.MatchId = matchSummary.Id;
+                    currentLegDetail.Score = Int32.TryParse(rowData["Column 3"], out int score) ? score : 0;
+                    //use the fucky regex for the below line
+                    currentLegDetail.DartsUsed = Int32.TryParse(rowData["Column 1"], out int dartsUsed) ? dartsUsed : 3;
+                    currentLegDetail.TurnNumber = round;
+                    currentLegDetail.PlayerId = matchSummary.HomePlayerId;
+                    if (int.TryParse(rowData["Column 4"], out int parsedValueHome))
+                    {
+                        currentLegDetail.ScoreRemainingBeforeThrow = currentLegDetail.Score + parsedValueHome;
+                    }
+                    else
+                    {
+                        currentLegDetail.ScoreRemainingBeforeThrow = null; 
+                        currentLegDetail.DartsUsed = 0;
+                    }
+                    currentLegLegDetail.Add(currentLegDetail);
+                    
+                    //do all the same shit for the away player
+                    currentLegDetail = new LegDetailModel();
+                    currentLegDetail.MatchId = matchSummary.Id;
+                    currentLegDetail.Score = Int32.TryParse(rowData["Column 7"], out int scoreAway) ? scoreAway : 0;
+                    //use the fucky regex for the below line
+                    currentLegDetail.DartsUsed = Int32.TryParse(rowData["Column 9"], out int dartsUsedAway) ? dartsUsedAway : 3;
+                    currentLegDetail.TurnNumber = round;
+                    currentLegDetail.PlayerId = matchSummary.AwayPlayerId;
+                    if (int.TryParse(rowData["Column 6"], out int parsedValueAway))
+                    {
+                        currentLegDetail.ScoreRemainingBeforeThrow = currentLegDetail.Score + parsedValueAway;
+                    }
+                    else
+                    {
+                        currentLegDetail.ScoreRemainingBeforeThrow = null;
+                        currentLegDetail.DartsUsed = 0;
+                    }
+                    currentLegLegDetail.Add(currentLegDetail);
+                    
+                    var roundInLeg = round;
+                    /*
+                     *Examples below:
+                     * 
+                         Column 1: 
+                         Column 2: Chris Eldert
+                         Column 3: 6
+                         Column 4: 2
+                         Column 5: 10
+                         Column 6: 8
+                         Column 7: 30
+                         Column 8: BJ Deyne
+                         Column 9: 
+                         Game: 7
+                       --------------------
+                       Column 1:
+                       Column 2: Chris Eldert
+                       Column 3: X
+                       Column 4: 2
+                       Column 5: 11
+                       Column 6: 0
+                       Column 7: 8
+                       Column 8: BJ Deyne
+                       Column 9: DO (2)
+                       Game: 7
+                     */
+                }
+                
                 bool containsDo = false;
                 string pattern = @"DO \((\d+)\)";
                 
@@ -258,7 +330,6 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     {
                         var match1 = Regex.Match(rowData[$"Column 1"], @"\((\d+)\)");
                         currentLeg.WinnerId = matchSummary.HomePlayerId;
-                        //TODO: Darts thrown logic is off
                         currentLeg.HomePlayerDartsThrown = ((Int32.Parse(rowData[$"Column 5"]) - 1) * 3) + Int32.Parse(match1.Groups[1].Value);
                         if (String.IsNullOrEmpty(rowData[$"Column 6"]))
                         {
@@ -270,6 +341,16 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         }
                         currentLeg.LegNumber = gameCount;
                         currentLegId = await _legRepo.InsertLegAsync(currentLeg);
+                        if (currentLegLegDetail.Any())
+                        {
+                            foreach (LegDetailModel legDetailModel in currentLegLegDetail)
+                            {
+                                legDetailModel.LegId = currentLegId;
+                            }
+                            await _legDetailRepo.InsertLegDetailsBatchAsync(currentLegLegDetail);
+                            currentLegLegDetail.Clear();  // Clear list to prevent duplicate insertions
+                        }
+
                         currentLeg = new LegModel();
                     }                   
                     else if (rowData[$"Column 6"] == "0")
@@ -287,7 +368,15 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                         }
                         currentLeg.LegNumber = gameCount;
                         currentLegId = await _legRepo.InsertLegAsync(currentLeg);
-                        currentLeg = new LegModel();
+                        if (currentLegLegDetail.Any())
+                        {
+                            foreach (LegDetailModel legDetailModel in currentLegLegDetail)
+                            {
+                                legDetailModel.LegId = currentLegId;
+                            }
+                            await _legDetailRepo.InsertLegDetailsBatchAsync(currentLegLegDetail);
+                            currentLegLegDetail.Clear();  // Clear list to prevent duplicate insertions
+                        }                        currentLeg = new LegModel();
                     }
                 }
                 

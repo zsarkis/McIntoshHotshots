@@ -50,26 +50,27 @@ public class LegRepo : ILegRepo
     public async Task<int> InsertLegAsync(LegModel leg)
     {
         using var connection = _connectionFactory.CreateConnection();
-        var query = @"
-                INSERT INTO leg (
-                    match_id, 
-                    leg_number, 
-                    home_player_darts_thrown, 
-                    away_player_darts_thrown, 
-                    loser_score_remaining, 
-                    winner_id, 
-                    time_elapsed
-                ) VALUES (
-                    @MatchId, 
-                    @LegNumber, 
-                    @HomePlayerDartsThrown, 
-                    @AwayPlayerDartsThrown, 
-                    @LoserScoreRemaining, 
-                    @WinnerId, 
-                    @TimeElapsed
-                ) RETURNING id;";
 
-        return await connection.ExecuteAsync(query, new
+        var query = @"
+        INSERT INTO leg (
+            match_id, 
+            leg_number, 
+            home_player_darts_thrown, 
+            away_player_darts_thrown, 
+            loser_score_remaining, 
+            winner_id, 
+            time_elapsed
+        ) VALUES (
+            @MatchId, 
+            @LegNumber, 
+            @HomePlayerDartsThrown, 
+            @AwayPlayerDartsThrown, 
+            @LoserScoreRemaining, 
+            @WinnerId, 
+            @TimeElapsed
+        ) RETURNING id;";
+
+        return await connection.ExecuteScalarAsync<int>(query, new
         {
             leg.MatchId,
             leg.LegNumber,
