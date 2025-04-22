@@ -1,10 +1,14 @@
 ﻿@page "/tournament-manager"
 @using McIntoshHotshots.Model
+@using McIntoshHotshots.Repo
 @using McIntoshHotshots.Services
 @using Microsoft.AspNetCore.Authorization
 @rendermode InteractiveServer
 @attribute [Authorize(Policy = "AdminOnly")]
+@inject IPlayerRepo _playerRepo
+@inject IMatchSummaryRepo _matchRepo
 @inject ITournamentService _tournamentService
+@inject IDartConnectReportParsingService _dartConnectReportParsingService
 
 <PageTitle>Tournament Manager</PageTitle>
 
@@ -21,6 +25,7 @@
     <label for="maxAttendees">Maximum Number of Attendees:</label>
     <input type="number" id="maxAttendees" @bind="MaxAttendees" class="form-control" min="1" max="1000" />
 </div>
+<h2 class="mt-5">Import Recaps</h2>
 
 <div class="mt-3">
     @if (SelectedTournament == null)
@@ -29,6 +34,37 @@
     }
     else
     {
+        <h2 class="mt-5">Select Players</h2>
+
+        <div class="mt-3">
+            <label for="homePlayer">Home Player:</label>
+            <select id="homePlayer" @bind="SelectedHomePlayerId" class="form-control">
+                <option value="">-- Select Home Player --</option>
+                @foreach (var player in Players)
+                {
+                    <option value="@player.Id">@player.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="mt-3">
+            <label for="awayPlayer">Away Player:</label>
+            <select id="awayPlayer" @bind="SelectedAwayPlayerId" class="form-control">
+                <option value="">-- Select Away Player --</option>
+                @foreach (var player in Players)
+                {
+                    <option value="@player.Id">@player.Name</option>
+                }
+            </select>
+        </div>
+        <div class="mt-3">
+            <label for="recapUrl">Recap URL:</label>
+            <input type="url" id="recapUrl" @bind="RecapUrl" class="form-control" placeholder="Enter recap URL" />
+        </div>
+
+        <div class="mt-3">
+            <button class="btn btn-info" @onclick="ImportRecap">Import Recap</button>
+        </div>
         <button class="btn btn-primary" @onclick="UpdateTournament">Update Tournament</button>
         <button class="btn btn-secondary ms-2" @onclick="ClearSelection">Cancel</button>
     }
@@ -83,9 +119,54 @@ else
     private List<TournamentModel> UpcomingTournaments;
     private TournamentModel SelectedTournament = null;
 
+    private string RecapUrl { get; set; }
+    private string ImportStatusMessage { get; set; }
+    private bool ImportSuccess { get; set; }
+
+    private async Task ImportRecap()
+    {
+        if (Uri.IsWellFormedUriString(RecapUrl, UriKind.Absolute))
+        {
+            try
+            {
+                //TODO: maybe move this over to a processors project and slap rabbitMQ in there? If not just leave this here for the resume's sake
+                //TODO: make sure to send the selected tournament ID along to send to postgres
+                //parse out match
+                //do similar parsing but on matches instead of games: https://recap.dartconnect.com/matches/6785d51af63413a02a9be35b
+                var matchId = await _dartConnectReportParsingService.ParseDartConnectMatchFromReport(RecapUrl, SelectedHomePlayerId.Value, SelectedAwayPlayerId.Value, SelectedTournament.Id); // this has what it needs outside match + leg IDs
+
+                var match = await _matchRepo.GetMatchSummaryByIdAsync(matchId);
+                    //get players by name and find their player_id or select them from a dropdown
+                //parse out leg
+                await _dartConnectReportParsingService.ParseDartConnectLegWithDetailFromReport(match); // this has what it needs outside match + leg IDs
+            }
+            catch (Exception ex)
+            {
+                ImportStatusMessage = $"Error: {ex.Message}";
+                ImportSuccess = false;
+            }
+        }
+        else
+        {
+            ImportStatusMessage = "Invalid URL format. Please enter a valid URL.";
+            ImportSuccess = false;
+        }
+    }
+    private List<PlayerModel> Players;
+    private int? SelectedHomePlayerId;
+    private int? SelectedAwayPlayerId;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadTournamentsAsync();
+        await LoadPlayersAsync();
+    }
+
+    private async Task LoadPlayersAsync()
+    {
+        // Fetch players from the service
+        var players = await _playerRepo.GetPlayersAsync();
+        Players = players.OrderBy(x => x.Name).ToList();
     }
 
     private async Task LoadTournamentsAsync()
