@@ -40,6 +40,7 @@
                     <div class="card-body">
                         <p><strong>ELO Rating:</strong> @SelectedPlayer.EloNumber</p>
                         <p><strong>Earnings:</strong> $@SelectedPlayer.Earnings</p>
+                        <p><strong>Average Match Duration:</strong> @(PlayerStatsData?.AverageMatchDuration ?? "00:00")</p>
                     </div>
                 </div>
             </div>
@@ -208,6 +209,38 @@
             TournamentsPlayed = allMatches.Select(m => m.TournamentId).Distinct().Count()
         };
 
+        // Calculate average match duration
+        if (allMatches.Any(m => !string.IsNullOrEmpty(m.TimeElapsed)))
+        {
+            var totalMinutes = 0;
+            var validMatches = 0;
+            
+            foreach (var match in allMatches)
+            {
+                if (!string.IsNullOrEmpty(match.TimeElapsed))
+                {
+                    // Try parsing as HH:MM:SS first
+                    if (TimeSpan.TryParse(match.TimeElapsed, out var duration))
+                    {
+                        totalMinutes += (int)duration.TotalMinutes;
+                        validMatches++;
+                    }
+                    // If that fails, try parsing as MM:SS
+                    else if (TimeSpan.TryParse("00:" + match.TimeElapsed, out duration))
+                    {
+                        totalMinutes += (int)duration.TotalMinutes;
+                        validMatches++;
+                    }
+                }
+            }
+            
+            if (validMatches > 0)
+            {
+                var averageMinutes = totalMinutes / validMatches;
+                stats.AverageMatchDuration = $"{averageMinutes / 60:D2}:{averageMinutes % 60:D2}";
+            }
+        }
+
         // Calculate more detailed stats
         var legDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(SelectedPlayerId);
         if (legDetails.Any())
@@ -280,6 +313,7 @@
         public double? AverageScore { get; set; }
         public int? BestScore { get; set; }
         public double? CheckoutPercentage { get; set; }
+        public string AverageMatchDuration { get; set; } = "00:00";
     }
 
     private class MatchSummaryDisplay

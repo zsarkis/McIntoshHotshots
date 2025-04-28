@@ -37,6 +37,7 @@ builder.Services.AddScoped<ILegDetailRepo, LegDetailRepo>();
 
 builder.Services.AddScoped<ITournamentService, TournamentService>();
 builder.Services.AddScoped<IDartConnectReportParsingService, DartConnectReportParsingService>();
+builder.Services.AddScoped<IEloCalculationService, EloCalculationService>();
 
 // Add Identity services
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
