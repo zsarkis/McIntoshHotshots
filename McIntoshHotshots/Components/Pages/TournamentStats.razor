@@ -1,0 +1,404 @@
+@page "/tournament-stats"
+@using McIntoshHotshots.Model
+@using McIntoshHotshots.Repo
+@using McIntoshHotshots.Services
+@rendermode InteractiveServer
+@inject ITournamentRepo _tournamentRepo
+@inject IMatchSummaryRepo _matchRepo
+@inject IPlayerRepo _playerRepo
+
+<PageTitle>Tournament Statistics</PageTitle>
+
+<div class="container mt-4">
+    <h1>Tournament Statistics</h1>
+
+    <div class="mb-4">
+        <label for="tournamentSelect" class="form-label">Select Tournament:</label>
+        <select id="tournamentSelect" class="form-select" @bind="SelectedTournamentId" @bind:after="LoadTournamentStats">
+            <option value="0">-- Select Tournament --</option>
+            @if (Tournaments != null)
+            {
+                @foreach (var tournament in Tournaments)
+                {
+                    <option value="@tournament.Id">@tournament.Date.ToString("MM/dd/yyyy")</option>
+                }
+            }
+        </select>
+    </div>
+
+    @if (SelectedTournamentId > 0 && SelectedTournament != null)
+    {
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Tournament Info</h4>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Date:</strong> @SelectedTournament.Date.ToString("MM/dd/yyyy")</p>
+                        <p><strong>Max Attendees:</strong> @SelectedTournament.MaxAttendees</p>
+                        <p><strong>Matches Played:</strong> @(TournamentMatches?.Count ?? 0)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Top Performers</h4>
+                    </div>
+                    <div class="card-body">
+                        @if (TopPerformers != null && TopPerformers.Any())
+                        {
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Player</th>
+                                        <th>Matches Won</th>
+                                        <th>Avg Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < TopPerformers.Count; i++)
+                                    {
+                                        var player = TopPerformers[i];
+                                        <tr>
+                                            <td>@(i + 1)</td>
+                                            <td>@player.Name</td>
+                                            <td>@player.MatchesWon</td>
+                                            <td>@player.AverageScore.ToString("F1")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        else
+                        {
+                            <p>No player data available for this tournament.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Tournament Matches</h4>
+                    </div>
+                    <div class="card-body">
+                        @if (TournamentMatches != null && TournamentMatches.Any())
+                        {
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Home Player</th>
+                                        <th>Score</th>
+                                        <th>Away Player</th>
+                                        <th>Home Avg</th>
+                                        <th>Away Avg</th>
+                                        <th>Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var match in TournamentMatches)
+                                    {
+                                        <tr>
+                                            <td>@match.HomePlayerName</td>
+                                            <td>@match.HomeLegsWon - @match.AwayLegsWon</td>
+                                            <td>@match.AwayPlayerName</td>
+                                            <td>@match.HomeSetAverage.ToString("F1")</td>
+                                            <td>@match.AwaySetAverage.ToString("F1")</td>
+                                            <td>@match.TimeElapsed</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        else
+                        {
+                            <p>No matches found for this tournament.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Tournament Statistics</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Average Match Duration:</strong> @TournamentStatInfo.AverageMatchDuration</p>
+                                <p><strong>Total Legs Played:</strong> @TournamentStatInfo.TotalLegsPlayed</p>
+                                <p><strong>Average Score per Leg:</strong> @TournamentStatInfo.AverageScorePerLeg.ToString("F1")</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Highest Average:</strong> @TournamentStatInfo.HighestAverage.ToString("F1") (@TournamentStatInfo.HighestAveragePlayerName)</p>
+                                <p><strong>Total Matches:</strong> @TournamentStatInfo.TotalMatches</p>
+                                <p><strong>Unique Players:</strong> @TournamentStatInfo.UniquePlayersCount</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (SelectedTournamentId > 0)
+    {
+        <div class="alert alert-warning">
+            Loading tournament data...
+        </div>
+    }
+</div>
+
+@code {
+    private List<TournamentModel> Tournaments;
+    private int SelectedTournamentId;
+    private TournamentModel SelectedTournament;
+    private List<MatchDisplayModel> TournamentMatches;
+    private List<PlayerPerformance> TopPerformers;
+    private TournamentStatistics TournamentStatInfo = new TournamentStatistics();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load all tournaments
+        var tournamentList = await _tournamentRepo.GetTournamentsAsync();
+        Tournaments = tournamentList.OrderByDescending(t => t.Date).ToList();
+    }
+
+    private async Task LoadTournamentStats()
+    {
+        if (SelectedTournamentId > 0)
+        {
+            // Get tournament details
+            SelectedTournament = await _tournamentRepo.GetTournamentByIdAsync(SelectedTournamentId);
+            
+            // Load matches for this tournament
+            await LoadTournamentMatches();
+            
+            // Calculate statistics and top performers
+            await CalculateTournamentStats();
+            await CalculateTopPerformers();
+        }
+        else
+        {
+            SelectedTournament = null;
+            TournamentMatches = null;
+            TopPerformers = null;
+            TournamentStatInfo = new TournamentStatistics();
+        }
+    }
+
+    private async Task LoadTournamentMatches()
+    {
+        var matches = await _matchRepo.GetMatchSummariesAsync();
+        var tournamentMatches = matches.Where(m => m.TournamentId == SelectedTournamentId).ToList();
+        
+        TournamentMatches = new List<MatchDisplayModel>();
+        
+        foreach (var match in tournamentMatches)
+        {
+            var homePlayer = await _playerRepo.GetPlayerByIdAsync(match.HomePlayerId);
+            var awayPlayer = await _playerRepo.GetPlayerByIdAsync(match.AwayPlayerId);
+            
+            var matchDisplay = new MatchDisplayModel
+            {
+                MatchId = match.Id,
+                HomePlayerName = homePlayer.Name,
+                AwayPlayerName = awayPlayer.Name,
+                HomePlayerId = match.HomePlayerId,
+                AwayPlayerId = match.AwayPlayerId,
+                HomeLegsWon = match.HomeLegsWon,
+                AwayLegsWon = match.AwayLegsWon,
+                HomeSetAverage = match.HomeSetAverage,
+                AwaySetAverage = match.AwaySetAverage,
+                TimeElapsed = match.TimeElapsed
+            };
+            
+            TournamentMatches.Add(matchDisplay);
+        }
+    }
+
+    private async Task CalculateTournamentStats()
+    {
+        if (TournamentMatches == null || !TournamentMatches.Any())
+        {
+            TournamentStatInfo = new TournamentStatistics();
+            return;
+        }
+        
+        var stats = new TournamentStatistics
+        {
+            TotalMatches = TournamentMatches.Count,
+            TotalLegsPlayed = TournamentMatches.Sum(m => m.HomeLegsWon + m.AwayLegsWon),
+            UniquePlayersCount = TournamentMatches
+                .SelectMany(m => new[] { m.HomePlayerId, m.AwayPlayerId })
+                .Distinct()
+                .Count()
+        };
+        
+        // Find highest average
+        var highestHomeAvg = TournamentMatches.OrderByDescending(m => m.HomeSetAverage).FirstOrDefault();
+        var highestAwayAvg = TournamentMatches.OrderByDescending(m => m.AwaySetAverage).FirstOrDefault();
+        
+        if (highestHomeAvg != null && highestAwayAvg != null)
+        {
+            if (highestHomeAvg.HomeSetAverage > highestAwayAvg.AwaySetAverage)
+            {
+                stats.HighestAverage = highestHomeAvg.HomeSetAverage;
+                stats.HighestAveragePlayerName = highestHomeAvg.HomePlayerName;
+            }
+            else
+            {
+                stats.HighestAverage = highestAwayAvg.AwaySetAverage;
+                stats.HighestAveragePlayerName = highestAwayAvg.AwayPlayerName;
+            }
+        }
+        
+        // Calculate average match duration
+        if (TournamentMatches.All(m => !string.IsNullOrEmpty(m.TimeElapsed)))
+        {
+            // Parse time elapsed strings like "14:30" into TimeSpan
+            var totalMinutes = 0;
+            var validMatches = 0;
+            
+            foreach (var match in TournamentMatches)
+            {
+                if (TimeSpan.TryParse("00:" + match.TimeElapsed, out var duration))
+                {
+                    totalMinutes += (int)duration.TotalMinutes;
+                    validMatches++;
+                }
+            }
+            
+            if (validMatches > 0)
+            {
+                var averageMinutes = totalMinutes / validMatches;
+                stats.AverageMatchDuration = $"{averageMinutes / 60:D2}:{averageMinutes % 60:D2}";
+            }
+        }
+        
+        // Calculate average score per leg (would need leg detail data for this)
+        stats.AverageScorePerLeg = (TournamentMatches.Sum(m => m.HomeSetAverage) + 
+                                   TournamentMatches.Sum(m => m.AwaySetAverage)) / (2 * TournamentMatches.Count);
+        
+        TournamentStatInfo = stats;
+    }
+
+    private async Task CalculateTopPerformers()
+    {
+        if (TournamentMatches == null || !TournamentMatches.Any())
+        {
+            TopPerformers = new List<PlayerPerformance>();
+            return;
+        }
+        
+        var playerPerformances = new Dictionary<int, PlayerPerformance>();
+        
+        foreach (var match in TournamentMatches)
+        {
+            // Process home player
+            if (!playerPerformances.ContainsKey(match.HomePlayerId))
+            {
+                var player = await _playerRepo.GetPlayerByIdAsync(match.HomePlayerId);
+                playerPerformances[match.HomePlayerId] = new PlayerPerformance
+                {
+                    PlayerId = match.HomePlayerId,
+                    Name = player.Name,
+                    MatchesPlayed = 0,
+                    MatchesWon = 0,
+                    TotalScore = 0,
+                    MatchCount = 0
+                };
+            }
+            
+            playerPerformances[match.HomePlayerId].MatchesPlayed++;
+            playerPerformances[match.HomePlayerId].TotalScore += match.HomeSetAverage;
+            playerPerformances[match.HomePlayerId].MatchCount++;
+            
+            if (match.HomeLegsWon > match.AwayLegsWon)
+            {
+                playerPerformances[match.HomePlayerId].MatchesWon++;
+            }
+            
+            // Process away player
+            if (!playerPerformances.ContainsKey(match.AwayPlayerId))
+            {
+                var player = await _playerRepo.GetPlayerByIdAsync(match.AwayPlayerId);
+                playerPerformances[match.AwayPlayerId] = new PlayerPerformance
+                {
+                    PlayerId = match.AwayPlayerId,
+                    Name = player.Name,
+                    MatchesPlayed = 0,
+                    MatchesWon = 0,
+                    TotalScore = 0,
+                    MatchCount = 0
+                };
+            }
+            
+            playerPerformances[match.AwayPlayerId].MatchesPlayed++;
+            playerPerformances[match.AwayPlayerId].TotalScore += match.AwaySetAverage;
+            playerPerformances[match.AwayPlayerId].MatchCount++;
+            
+            if (match.AwayLegsWon > match.HomeLegsWon)
+            {
+                playerPerformances[match.AwayPlayerId].MatchesWon++;
+            }
+        }
+        
+        // Calculate averages and sort by matches won (primary) and average score (secondary)
+        foreach (var player in playerPerformances.Values)
+        {
+            player.AverageScore = player.MatchCount > 0 ? player.TotalScore / player.MatchCount : 0;
+        }
+        
+        TopPerformers = playerPerformances.Values
+            .OrderByDescending(p => p.MatchesWon)
+            .ThenByDescending(p => p.AverageScore)
+            .ToList();
+    }
+
+    // Models for the tournament statistics view
+    private class MatchDisplayModel
+    {
+        public int MatchId { get; set; }
+        public string HomePlayerName { get; set; }
+        public string AwayPlayerName { get; set; }
+        public int HomePlayerId { get; set; }
+        public int AwayPlayerId { get; set; }
+        public int HomeLegsWon { get; set; }
+        public int AwayLegsWon { get; set; }
+        public double HomeSetAverage { get; set; }
+        public double AwaySetAverage { get; set; }
+        public string TimeElapsed { get; set; }
+    }
+
+    private class PlayerPerformance
+    {
+        public int PlayerId { get; set; }
+        public string Name { get; set; }
+        public int MatchesPlayed { get; set; }
+        public int MatchesWon { get; set; }
+        public double TotalScore { get; set; }
+        public int MatchCount { get; set; }
+        public double AverageScore { get; set; }
+    }
+
+    private class TournamentStatistics
+    {
+        public int TotalMatches { get; set; }
+        public int TotalLegsPlayed { get; set; }
+        public int UniquePlayersCount { get; set; }
+        public double HighestAverage { get; set; }
+        public string HighestAveragePlayerName { get; set; }
+        public string AverageMatchDuration { get; set; } = "00:00";
+        public double AverageScorePerLeg { get; set; }
+    }
+} 

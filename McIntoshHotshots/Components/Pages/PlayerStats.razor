@@ -1,0 +1,296 @@
+@page "/player-stats"
+@using McIntoshHotshots.Model
+@using McIntoshHotshots.Repo
+@using McIntoshHotshots.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@rendermode InteractiveServer
+@inject IPlayerRepo _playerRepo
+@inject IMatchSummaryRepo _matchRepo
+@inject ILegRepo _legRepo
+@inject ILegDetailRepo _legDetailRepo
+@inject AuthenticationStateProvider _authenticationStateProvider
+
+<PageTitle>Player Statistics</PageTitle>
+
+<div class="container mt-4">
+    <h1>Player Statistics</h1>
+
+    <div class="mb-4">
+        <label for="playerSelect" class="form-label">Select Player:</label>
+        <select id="playerSelect" class="form-select" @bind="SelectedPlayerId" @bind:after="LoadPlayerStats">
+            <option value="0">-- Select Player --</option>
+            @if (Players != null)
+            {
+                @foreach (var player in Players)
+                {
+                    <option value="@player.Id">@player.Name</option>
+                }
+            }
+        </select>
+    </div>
+
+    @if (SelectedPlayerId > 0 && SelectedPlayer != null)
+    {
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>@SelectedPlayer.Name</h4>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>ELO Rating:</strong> @SelectedPlayer.EloNumber</p>
+                        <p><strong>Earnings:</strong> $@SelectedPlayer.Earnings</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Match Summary</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 text-center">
+                                <div class="stats-circle">
+                                    <h2>@(PlayerStatsData?.MatchesPlayed ?? 0)</h2>
+                                </div>
+                                <p>Matches Played</p>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="stats-circle">
+                                    <h2>@(PlayerStatsData?.MatchesWon ?? 0)</h2>
+                                </div>
+                                <p>Matches Won</p>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="stats-circle">
+                                    <h2>@WinRate%</h2>
+                                </div>
+                                <p>Win Rate</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h4>Performance Statistics</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Average Score:</strong> @(PlayerStatsData?.AverageScore?.ToString("F2") ?? "0.00")</p>
+                                <p><strong>Best Score:</strong> @(PlayerStatsData?.BestScore ?? 0)</p>
+                                <p><strong>Checkout Percentage:</strong> @(PlayerStatsData?.CheckoutPercentage?.ToString("F1") ?? "0.0")%</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Total Legs Played:</strong> @(PlayerStatsData?.LegsPlayed ?? 0)</p>
+                                <p><strong>Legs Won:</strong> @(PlayerStatsData?.LegsWon ?? 0)</p>
+                                <p><strong>Tournaments Played:</strong> @(PlayerStatsData?.TournamentsPlayed ?? 0)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Recent Matches</h4>
+                    </div>
+                    <div class="card-body">
+                        @if (RecentMatches == null || !RecentMatches.Any())
+                        {
+                            <p>No recent matches found.</p>
+                        }
+                        else
+                        {
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Opponent</th>
+                                        <th>Result</th>
+                                        <th>Score</th>
+                                        <th>Average</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var match in RecentMatches)
+                                    {
+                                        <tr>
+                                            <td>@(match.TournamentDate?.ToString("MM/dd/yyyy") ?? "N/A")</td>
+                                            <td>@match.OpponentName</td>
+                                            <td>@(match.IsWinner ? "Won" : "Lost")</td>
+                                            <td>@match.PlayerScore - @match.OpponentScore</td>
+                                            <td>@match.PlayerAverage.ToString("F1")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (SelectedPlayerId > 0)
+    {
+        <div class="alert alert-warning">
+            Loading player data...
+        </div>
+    }
+</div>
+
+<style>
+    .stats-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background-color: #007bff;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+    }
+</style>
+
+@code {
+    private List<PlayerModel> Players;
+    private int SelectedPlayerId;
+    private PlayerModel SelectedPlayer;
+    private PlayerStatistics PlayerStatsData;
+    private List<MatchSummaryDisplay> RecentMatches;
+    private int WinRate => PlayerStatsData?.MatchesPlayed > 0 
+        ? (PlayerStatsData.MatchesWon * 100 / PlayerStatsData.MatchesPlayed) 
+        : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Players = (await _playerRepo.GetPlayersAsync()).ToList();
+    }
+
+    private async Task LoadPlayerStats()
+    {
+        if (SelectedPlayerId > 0)
+        {
+            SelectedPlayer = await _playerRepo.GetPlayerByIdAsync(SelectedPlayerId);
+            await LoadPlayerStatistics();
+            await LoadRecentMatches();
+        }
+        else
+        {
+            SelectedPlayer = null;
+            PlayerStatsData = null;
+            RecentMatches = null;
+        }
+    }
+
+    private async Task LoadPlayerStatistics()
+    {
+        // Fetch matches where player participated
+        var allMatches = await _matchRepo.GetMatchesByPlayerIdAsync(SelectedPlayerId);
+        var allLegs = await _legRepo.GetLegsByPlayerIdAsync(SelectedPlayerId);
+        
+        var stats = new PlayerStatistics
+        {
+            MatchesPlayed = allMatches.Count,
+            MatchesWon = allMatches.Count(m => 
+                (m.HomePlayerId == SelectedPlayerId && m.HomeLegsWon > m.AwayLegsWon) ||
+                (m.AwayPlayerId == SelectedPlayerId && m.AwayLegsWon > m.HomeLegsWon)
+            ),
+            LegsPlayed = allLegs.Count,
+            LegsWon = allLegs.Count(l => l.WinnerId == SelectedPlayerId),
+            TournamentsPlayed = allMatches.Select(m => m.TournamentId).Distinct().Count()
+        };
+
+        // Calculate more detailed stats
+        var legDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(SelectedPlayerId);
+        if (legDetails.Any())
+        {
+            stats.AverageScore = legDetails.Average(ld => ld.Score);
+            stats.BestScore = legDetails.Max(ld => ld.Score);
+            
+            // Calculate checkout percentage
+            var checkoutAttempts = legDetails.Count(ld => 
+                ld.ScoreRemainingBeforeThrow <= 170 && 
+                ld.ScoreRemainingBeforeThrow > 0
+            );
+            
+            var successfulCheckouts = legDetails.Count(ld => 
+                ld.ScoreRemainingBeforeThrow <= 170 && 
+                ld.ScoreRemainingBeforeThrow > 0 && 
+                ld.ScoreRemainingBeforeThrow - ld.Score == 0
+            );
+            
+            stats.CheckoutPercentage = checkoutAttempts > 0 
+                ? ((double)successfulCheckouts / checkoutAttempts) * 100 
+                : 0;
+        }
+
+        PlayerStatsData = stats;
+    }
+
+    private async Task LoadRecentMatches()
+    {
+        var allMatches = await _matchRepo.GetMatchesByPlayerIdAsync(SelectedPlayerId);
+        var recentMatches = allMatches.OrderByDescending(m => m.Id).Take(10).ToList();
+        
+        RecentMatches = new List<MatchSummaryDisplay>();
+        
+        foreach (var match in recentMatches)
+        {
+            var opponent = await _playerRepo.GetPlayerByIdAsync(
+                match.HomePlayerId == SelectedPlayerId ? match.AwayPlayerId : match.HomePlayerId
+            );
+            
+            var isHomePlayer = match.HomePlayerId == SelectedPlayerId;
+            var playerScore = isHomePlayer ? match.HomeLegsWon : match.AwayLegsWon;
+            var opponentScore = isHomePlayer ? match.AwayLegsWon : match.HomeLegsWon;
+            var playerAverage = isHomePlayer ? match.HomeSetAverage : match.AwaySetAverage;
+            
+            var matchDisplay = new MatchSummaryDisplay
+            {
+                MatchId = match.Id,
+                OpponentName = opponent.Name,
+                PlayerScore = playerScore,
+                OpponentScore = opponentScore,
+                IsWinner = playerScore > opponentScore,
+                PlayerAverage = playerAverage,
+                TournamentId = match.TournamentId
+                // We'll fill in tournament date in a separate query
+            };
+            
+            RecentMatches.Add(matchDisplay);
+        }
+    }
+
+    // Models for the player statistics view
+    private class PlayerStatistics
+    {
+        public int MatchesPlayed { get; set; }
+        public int MatchesWon { get; set; }
+        public int LegsPlayed { get; set; }
+        public int LegsWon { get; set; }
+        public int TournamentsPlayed { get; set; }
+        public double? AverageScore { get; set; }
+        public int? BestScore { get; set; }
+        public double? CheckoutPercentage { get; set; }
+    }
+
+    private class MatchSummaryDisplay
+    {
+        public int MatchId { get; set; }
+        public string OpponentName { get; set; }
+        public int PlayerScore { get; set; }
+        public int OpponentScore { get; set; }
+        public bool IsWinner { get; set; }
+        public double PlayerAverage { get; set; }
+        public int? TournamentId { get; set; }
+        public DateTime? TournamentDate { get; set; }
+    }
+} 
