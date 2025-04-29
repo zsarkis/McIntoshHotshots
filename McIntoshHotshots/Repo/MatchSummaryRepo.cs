@@ -10,6 +10,7 @@ public interface IMatchSummaryRepo
     Task<IEnumerable<MatchSummaryModel>> GetMatchSummariesAsync();
     Task<int> InsertMatchSummaryAsync(MatchSummaryModel matchSummary);
     Task<int> UpdateMatchSummaryAsync(MatchSummaryModel matchSummary);
+    Task<List<MatchSummaryModel>> GetMatchesByPlayerIdAsync(int playerId);
 }
 
 public class MatchSummaryRepo : IMatchSummaryRepo
@@ -141,5 +142,29 @@ public class MatchSummaryRepo : IMatchSummaryRepo
             matchSummary.CorkWinnerPlayerId,
             matchSummary.TournamentId
         });
+    }
+
+    public async Task<List<MatchSummaryModel>> GetMatchesByPlayerIdAsync(int playerId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var query = @"
+        SELECT 
+            id AS Id,
+            url_to_recap AS UrlToRecap,
+            home_player_id AS HomePlayerId,
+            away_player_id AS AwayPlayerId,
+            home_set_average AS HomeSetAverage,
+            away_set_average AS AwaySetAverage,
+            home_legs_won AS HomeLegsWon,
+            away_legs_won AS AwayLegsWon,
+            time_elapsed AS TimeElapsed,
+            cork_winner_player_id AS CorkWinnerPlayerId,
+            tournament_id AS TournamentId
+        FROM match_summary 
+        WHERE home_player_id = @PlayerId OR away_player_id = @PlayerId
+        ORDER BY id DESC";
+
+        var results = await connection.QueryAsync<MatchSummaryModel>(query, new { PlayerId = playerId });
+        return results.ToList();
     }
 }

@@ -9,6 +9,7 @@
 @inject IMatchSummaryRepo _matchRepo
 @inject ITournamentService _tournamentService
 @inject IDartConnectReportParsingService _dartConnectReportParsingService
+@inject IEloCalculationService _eloCalculationService
 
 <PageTitle>Tournament Manager</PageTitle>
 
@@ -65,6 +66,14 @@
         <div class="mt-3">
             <button class="btn btn-info" @onclick="ImportRecap">Import Recap</button>
         </div>
+        
+        @if (!string.IsNullOrEmpty(ImportStatusMessage))
+        {
+            <div class="mt-3 @(ImportSuccess ? "alert alert-success" : "alert alert-danger")">
+                @ImportStatusMessage
+            </div>
+        }
+        
         <button class="btn btn-primary" @onclick="UpdateTournament">Update Tournament</button>
         <button class="btn btn-secondary ms-2" @onclick="ClearSelection">Cancel</button>
     }
@@ -112,6 +121,46 @@ else
     </table>
 }
 
+<h2 class="mt-5">Manage ELO Ratings</h2>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <p>
+            The current ELO system is specifically designed for darts, taking into account:
+        </p>
+        <ul>
+            <li>Match outcome (win/loss)</li>
+            <li>Score margin (leg difference)</li>
+            <li>Player experience (K-factor varies based on matches played)</li>
+        </ul>
+        <p>
+            This will reset all players to the default ELO rating (@DefaultElo) and then recalculate based on match history.
+        </p>
+        <button class="btn btn-warning" @onclick="RecalculateAllEloRatings" disabled="@IsCalculatingElo">
+            @if (IsCalculatingElo)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span> Calculating...</span>
+            }
+            else
+            {
+                <span>Recalculate All ELO Ratings</span>
+            }
+        </button>
+        
+        @if (!string.IsNullOrEmpty(EloStatusMessage))
+        {
+            <div class="mt-3 @(EloSuccess ? "alert alert-success" : "alert alert-danger")">
+                @EloStatusMessage
+            </div>
+        }
+        
+        <div class="mt-3">
+            <a href="/elo-rankings" class="btn btn-primary">View ELO Rankings</a>
+        </div>
+    </div>
+</div>
+
 @code {
     private DateTime TournamentDate = DateTime.Today;
     private int MaxAttendees = 8;
@@ -122,6 +171,11 @@ else
     private string RecapUrl { get; set; }
     private string ImportStatusMessage { get; set; }
     private bool ImportSuccess { get; set; }
+
+    private const int DefaultElo = 1500; // Same as in EloCalculationService
+    private bool IsCalculatingElo = false;
+    private string EloStatusMessage;
+    private bool EloSuccess;
 
     private async Task ImportRecap()
     {
@@ -136,9 +190,16 @@ else
                 var matchId = await _dartConnectReportParsingService.ParseDartConnectMatchFromReport(RecapUrl, SelectedHomePlayerId.Value, SelectedAwayPlayerId.Value, SelectedTournament.Id); // this has what it needs outside match + leg IDs
 
                 var match = await _matchRepo.GetMatchSummaryByIdAsync(matchId);
-                    //get players by name and find their player_id or select them from a dropdown
+                //get players by name and find their player_id or select them from a dropdown
                 //parse out leg
                 await _dartConnectReportParsingService.ParseDartConnectLegWithDetailFromReport(match); // this has what it needs outside match + leg IDs
+                
+                // Update ELO ratings after successful import
+                bool homePlayerWon = match.HomeLegsWon > match.AwayLegsWon;
+                await _eloCalculationService.UpdatePlayerEloAfterMatchAsync(match.HomePlayerId, match.AwayPlayerId, homePlayerWon);
+                
+                ImportSuccess = true;
+                ImportStatusMessage = $"Recap successfully imported and ELO ratings updated. Match ID: {matchId}";
             }
             catch (Exception ex)
             {
@@ -217,5 +278,27 @@ else
         TournamentDate = DateTime.Today;
         MaxAttendees = 8;
         TournamentCreated = false;
+    }
+
+    private async Task RecalculateAllEloRatings()
+    {
+        IsCalculatingElo = true;
+        EloStatusMessage = null;
+        
+        try
+        {
+            await _eloCalculationService.RecalculateAllPlayersEloAsync();
+            EloSuccess = true;
+            EloStatusMessage = "Successfully recalculated ELO ratings for all players.";
+        }
+        catch (Exception ex)
+        {
+            EloSuccess = false;
+            EloStatusMessage = $"Error recalculating ELO ratings: {ex.Message}";
+        }
+        finally
+        {
+            IsCalculatingElo = false;
+        }
     }
 }

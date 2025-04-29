@@ -1,0 +1,88 @@
+@page "/elo-rankings"
+@using McIntoshHotshots.Model
+@using McIntoshHotshots.Repo
+@using McIntoshHotshots.Services
+@using Microsoft.AspNetCore.Authorization
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "AdminOnly")]
+@inject IEloCalculationService _eloService
+@inject IPlayerRepo _playerRepo
+
+<PageTitle>ELO Rankings</PageTitle>
+
+<div class="container mt-4">
+    <h1>ELO Rankings</h1>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Current Player Rankings</h4>
+                    <div>
+                        <button class="btn btn-primary me-2" @onclick="LoadRankings">Refresh</button>
+                        <button class="btn btn-warning me-2" @onclick="ResetAllEloTo1">Reset All to 1</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (PlayerRankings == null)
+                    {
+                        <p>Loading rankings...</p>
+                    }
+                    else if (!PlayerRankings.Any())
+                    {
+                        <p>No player rankings found.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>ELO Rating</th>
+                                    <th>UserId</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    int rank = 1;
+                                    foreach (var player in PlayerRankings)
+                                    {
+                                        <tr>
+                                            <td>@rank</td>
+                                            <td>@player.Name</td>
+                                            <td>@player.EloNumber</td>
+                                            <td>@(player.UserId ?? "None")</td>
+                                        </tr>
+                                        rank++;
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<PlayerModel> PlayerRankings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRankings();
+    }
+
+    private async Task LoadRankings()
+    {
+        var players = await _playerRepo.GetPlayersAsync();
+        PlayerRankings = players.OrderByDescending(p => p.EloNumber).ToList();
+    }
+    
+    private async Task ResetAllEloTo1()
+    {
+        await _eloService.ResetAllPlayersEloAsync(1);
+        await LoadRankings();
+    }
+} 

@@ -13,6 +13,7 @@ public interface ILegDetailRepo
     Task<int[]> InsertLegDetailsBatchAsync(IEnumerable<LegDetailModel> legDetails);
     Task<int> UpdateLegDetailAsync(LegDetailModel legDetail);
     Task<int> DeleteLegDetailAsync(int id);
+    Task<List<LegDetailModel>> GetLegDetailsByPlayerIdAsync(int playerId);
 }
 
 public class LegDetailRepo : ILegDetailRepo
@@ -176,5 +177,26 @@ public class LegDetailRepo : ILegDetailRepo
         using var connection = _connectionFactory.CreateConnection();
         var query = "DELETE FROM leg_detail WHERE id = @Id";
         return await connection.ExecuteAsync(query, new { Id = id });
+    }
+
+    public async Task<List<LegDetailModel>> GetLegDetailsByPlayerIdAsync(int playerId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var query = @"
+        SELECT 
+            id AS Id,
+            match_id AS MatchId,
+            leg_id AS LegId,
+            turn_number AS TurnNumber,
+            player_id AS PlayerId,
+            score_remaining_before_throw AS ScoreRemainingBeforeThrow,
+            score AS Score,
+            darts_used AS DartsUsed
+        FROM leg_detail
+        WHERE player_id = @PlayerId
+        ORDER BY match_id, leg_id, turn_number";
+
+        var results = await connection.QueryAsync<LegDetailModel>(query, new { PlayerId = playerId });
+        return results.ToList();
     }
 }

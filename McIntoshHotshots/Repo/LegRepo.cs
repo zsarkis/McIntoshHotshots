@@ -10,6 +10,7 @@ public interface ILegRepo
     Task<IEnumerable<LegModel>> GetLegsByMatchIdAsync(int matchId);
     Task<int> InsertLegAsync(LegModel leg);
     Task<int> UpdateLegAsync(LegModel leg);
+    Task<List<LegModel>> GetLegsByPlayerIdAsync(int playerId);
 }
 
 public class LegRepo : ILegRepo
@@ -108,5 +109,28 @@ public class LegRepo : ILegRepo
             leg.WinnerId,
             leg.TimeElapsed
         });
+    }
+
+    public async Task<List<LegModel>> GetLegsByPlayerIdAsync(int playerId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var query = @"
+        SELECT 
+            l.id AS Id,
+            l.match_id AS MatchId,
+            l.leg_number AS LegNumber,
+            l.home_player_darts_thrown AS HomePlayerDartsThrown,
+            l.away_player_darts_thrown AS AwayPlayerDartsThrown,
+            l.loser_score_remaining AS LoserScoreRemaining,
+            l.winner_id AS WinnerId,
+            l.time_elapsed AS TimeElapsed
+        FROM leg l
+        JOIN match_summary m ON l.match_id = m.id
+        WHERE m.home_player_id = @PlayerId 
+           OR m.away_player_id = @PlayerId
+           OR l.winner_id = @PlayerId";
+
+        var results = await connection.QueryAsync<LegModel>(query, new { PlayerId = playerId });
+        return results.ToList();
     }
 }
