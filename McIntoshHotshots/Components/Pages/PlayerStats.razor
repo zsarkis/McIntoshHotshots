@@ -302,6 +302,16 @@
         }
     }
 
+    private async Task RefreshPlayerElo()
+    {
+        if (SelectedPlayerId > 0)
+        {
+            // Reload just the player data to get the latest ELO
+            SelectedPlayer = await _playerRepo.GetPlayerByIdAsync(SelectedPlayerId);
+            StateHasChanged();
+        }
+    }
+
     // Models for the player statistics view
     private class PlayerStatistics
     {
