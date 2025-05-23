@@ -1,0 +1,45 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: mcintoshhotshots:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    # Uncomment the following steps if you want to push to a registry
+    # - name: Log in to Docker Hub
+    #   if: github.event_name != 'pull_request'
+    #   uses: docker/login-action@v3
+    #   with:
+    #     username: ${{ secrets.DOCKER_USERNAME }}
+    #     password: ${{ secrets.DOCKER_PASSWORD }}
+    # 
+    # - name: Push Docker image
+    #   if: github.event_name != 'pull_request'
+    #   uses: docker/build-push-action@v5
+    #   with:
+    #     context: .
+    #     push: true
+    #     tags: your-dockerhub-username/mcintoshhotshots:latest
+    #     cache-from: type=gha
+    #     cache-to: type=gha,mode=max 

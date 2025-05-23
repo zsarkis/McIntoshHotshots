@@ -5,6 +5,7 @@ using McIntoshHotshots.db;
 using McIntoshHotshots.Factory;
 using McIntoshHotshots.Repo;
 using McIntoshHotshots.Services;
+using Dapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,7 @@ builder.Services.AddScoped<ILegDetailRepo, LegDetailRepo>();
 
 builder.Services.AddScoped<ITournamentService, TournamentService>();
 builder.Services.AddScoped<IDartConnectReportParsingService, DartConnectReportParsingService>();
+builder.Services.AddScoped<IEloCalculationService, EloCalculationService>();
 
 // Add Identity services
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
@@ -49,6 +51,8 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
 // Add authentication and authorization
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
+
+Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 var app = builder.Build();
 
