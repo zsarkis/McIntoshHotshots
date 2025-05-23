@@ -18,5 +18,7 @@ primary_region = 'den'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+
 [env]
   ASPNETCORE_URLS = "http://+:80"
+  ASPNETCORE_ENVIRONMENT = "Production"
