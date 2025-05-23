@@ -10,6 +10,7 @@ public interface ILegDetailRepo
     Task<LegDetailModel> GetLegDetailByIdAsync(int id);
     Task<IEnumerable<LegDetailModel>> GetLegDetailsByLegIdAsync(int legId);
     Task<int> InsertLegDetailAsync(LegDetailModel legDetail);
+    Task<LegDetailModel> CreateLegDetailAsync(LegDetailModel legDetail);
     Task<int[]> InsertLegDetailsBatchAsync(IEnumerable<LegDetailModel> legDetails);
     Task<int> UpdateLegDetailAsync(LegDetailModel legDetail);
     Task<int> DeleteLegDetailAsync(int id);
@@ -198,5 +199,12 @@ public class LegDetailRepo : ILegDetailRepo
 
         var results = await connection.QueryAsync<LegDetailModel>(query, new { PlayerId = playerId });
         return results.ToList();
+    }
+
+    public async Task<LegDetailModel> CreateLegDetailAsync(LegDetailModel legDetail)
+    {
+        var id = await InsertLegDetailAsync(legDetail);
+        legDetail.Id = id;
+        return legDetail;
     }
 }
