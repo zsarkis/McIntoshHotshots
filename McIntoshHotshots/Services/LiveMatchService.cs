@@ -62,17 +62,17 @@ public class LiveMatchService : ILiveMatchService
             return false;
             
         var currentScore = match.GetPlayerScore(playerId);
-        var newScore = currentScore - score;
         
-        // Check for bust (going below 0 or ending on 1)
-        if (newScore < 0 || newScore == 1)
+        // Use the rule engine to validate the throw
+        var ruleResult = DartsRuleEngine.ValidateThrow(currentScore, score, dartsUsed);
+        
+        if (!ruleResult.IsValid)
         {
-            // Bust - end turn, no score change
-            await EndTurnAsync(match);
-            return true;
+            // Invalid throw - don't record it
+            return false;
         }
         
-        // Valid throw
+        // Create the throw record
         var liveThrow = new LiveThrow
         {
             Id = match.AllThrows.Count + 1,
@@ -82,9 +82,9 @@ public class LiveMatchService : ILiveMatchService
             Score = score,
             DartsUsed = dartsUsed,
             ScoreRemainingBefore = currentScore,
-            ScoreRemainingAfter = newScore,
+            ScoreRemainingAfter = ruleResult.NewScore,
             Timestamp = DateTime.UtcNow,
-            IsFinishingThrow = newScore == 0
+            IsFinishingThrow = ruleResult.IsFinish
         };
         
         match.AllThrows.Add(liveThrow);
@@ -93,13 +93,26 @@ public class LiveMatchService : ILiveMatchService
         
         // Update player score
         if (playerId == match.HomePlayerId)
-            match.HomeCurrentScore = newScore;
+            match.HomeCurrentScore = ruleResult.NewScore;
         else
-            match.AwayCurrentScore = newScore;
-            
-        // Check for leg finish
-        if (newScore == 0)
+            match.AwayCurrentScore = ruleResult.NewScore;
+        
+        // Handle bust
+        if (ruleResult.IsBust)
         {
+            // Add bust information to the throw
+            liveThrow.IsBust = true;
+            liveThrow.BustReason = ruleResult.BustReason;
+            
+            // End turn immediately on bust
+            await EndTurnAsync(match);
+            return true;
+        }
+        
+        // Check for leg finish
+        if (ruleResult.IsFinish)
+        {
+            liveThrow.FinishingDouble = ruleResult.FinishingDouble;
             await FinishLegAsync(matchId);
         }
         else if (match.DartsThrown >= 3)

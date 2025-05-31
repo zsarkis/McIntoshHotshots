@@ -71,4 +71,7 @@ public class LiveThrow
     public int ScoreRemainingAfter { get; set; }
     public DateTime Timestamp { get; set; }
     public bool IsFinishingThrow { get; set; }
+    public bool IsBust { get; set; }
+    public string BustReason { get; set; } = string.Empty;
+    public int? FinishingDouble { get; set; }
 } 
