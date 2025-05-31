@@ -9,6 +9,7 @@ public interface IMatchSummaryRepo
     Task<MatchSummaryModel> GetMatchSummaryByIdAsync(int id);
     Task<IEnumerable<MatchSummaryModel>> GetMatchSummariesAsync();
     Task<int> InsertMatchSummaryAsync(MatchSummaryModel matchSummary);
+    Task<MatchSummaryModel> CreateMatchSummaryAsync(MatchSummaryModel matchSummary);
     Task<int> UpdateMatchSummaryAsync(MatchSummaryModel matchSummary);
     Task<List<MatchSummaryModel>> GetMatchesByPlayerIdAsync(int playerId);
 }
@@ -109,6 +110,12 @@ public class MatchSummaryRepo : IMatchSummaryRepo
         });
     }
 
+    public async Task<MatchSummaryModel> CreateMatchSummaryAsync(MatchSummaryModel matchSummary)
+    {
+        var id = await InsertMatchSummaryAsync(matchSummary);
+        matchSummary.Id = id;
+        return matchSummary;
+    }
 
     public async Task<int> UpdateMatchSummaryAsync(MatchSummaryModel matchSummary)
     {

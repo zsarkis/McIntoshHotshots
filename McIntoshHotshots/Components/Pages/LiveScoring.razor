@@ -1,0 +1,648 @@
+@page "/live-scoring"
+@using McIntoshHotshots.Model
+@using McIntoshHotshots.Services
+@using McIntoshHotshots.Repo
+@inject ILiveMatchService LiveMatchService
+@inject IPlayerRepo PlayerRepo
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Live Scoring - McIntosh Hotshots</PageTitle>
+
+<div class="live-scoring-container">
+    @if (currentMatch == null)
+    {
+        <div class="match-setup">
+            <h1>Start New Match</h1>
+            
+            <div class="player-selection">
+                <div class="player-select">
+                    <label>Home Player</label>
+                    <select @bind="selectedHomePlayerId" class="player-dropdown">
+                        <option value="0">Select Player</option>
+                        @foreach (var player in players)
+                        {
+                            <option value="@player.Id">@player.Name</option>
+                        }
+                    </select>
+                </div>
+                
+                <div class="vs-divider">VS</div>
+                
+                <div class="player-select">
+                    <label>Away Player</label>
+                    <select @bind="selectedAwayPlayerId" class="player-dropdown">
+                        <option value="0">Select Player</option>
+                        @foreach (var player in players.Where(p => p.Id != selectedHomePlayerId))
+                        {
+                            <option value="@player.Id">@player.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            
+            <button class="start-match-btn" @onclick="StartMatch" disabled="@(selectedHomePlayerId == 0 || selectedAwayPlayerId == 0)">
+                Start Match
+            </button>
+            
+            @if (activeMatches.Any())
+            {
+                <div class="active-matches">
+                    <h2>Resume Active Match</h2>
+                    @foreach (var match in activeMatches)
+                    {
+                        <div class="active-match-card" @onclick="() => ResumeMatch(match.Id)">
+                            <div class="match-players">@match.HomePlayerName vs @match.AwayPlayerName</div>
+                            <div class="match-score">@match.HomeLegsWon - @match.AwayLegsWon</div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="scoring-interface">
+            <!-- Match Header -->
+            <div class="match-header">
+                <div class="player-info home @(currentMatch.IsCurrentPlayerTurn(currentMatch.HomePlayerId) ? "active" : "")">
+                    <div class="player-name">@currentMatch.HomePlayerName</div>
+                    <div class="player-score">@currentMatch.HomeCurrentScore</div>
+                    <div class="player-average">Avg: @currentMatch.HomeSetAverage.ToString("F1")</div>
+                </div>
+                
+                <div class="match-center">
+                    <div class="leg-info">Leg @currentMatch.CurrentLegNumber</div>
+                    <div class="legs-score">@currentMatch.HomeLegsWon - @currentMatch.AwayLegsWon</div>
+                    <div class="turn-info">Turn @currentMatch.CurrentTurnNumber</div>
+                </div>
+                
+                <div class="player-info away @(currentMatch.IsCurrentPlayerTurn(currentMatch.AwayPlayerId) ? "active" : "")">
+                    <div class="player-name">@currentMatch.AwayPlayerName</div>
+                    <div class="player-score">@currentMatch.AwayCurrentScore</div>
+                    <div class="player-average">Avg: @currentMatch.AwaySetAverage.ToString("F1")</div>
+                </div>
+            </div>
+            
+            <!-- Current Turn Display -->
+            <div class="current-turn">
+                <div class="current-player">@currentMatch.GetPlayerName(currentMatch.CurrentPlayerId)'s Turn</div>
+                <div class="darts-thrown">Darts: @currentMatch.DartsThrown/3</div>
+                @if (currentMatch.CurrentTurnScores.Any())
+                {
+                    <div class="turn-scores">
+                        @string.Join(" + ", currentMatch.CurrentTurnScores) = @currentMatch.CurrentTurnScores.Sum()
+                    </div>
+                }
+            </div>
+            
+            <!-- Score Input -->
+            <div class="score-input-section">
+                <div class="score-input">
+                    <input type="number" @bind="inputScore" @onkeypress="HandleKeyPress" 
+                           placeholder="Enter score" min="0" max="180" class="score-textbox" />
+                    <input type="number" @bind="inputDarts" placeholder="Darts" min="1" max="3" 
+                           class="darts-textbox" />
+                </div>
+                
+                <div class="score-buttons">
+                    <button class="score-btn" @onclick="() => RecordScore(inputScore, inputDarts)" 
+                            disabled="@(!currentMatch.CanThrow || inputScore < 0 || inputScore > 180)">
+                        Record Score
+                    </button>
+                    <button class="undo-btn" @onclick="UndoLastThrow">Undo</button>
+                </div>
+            </div>
+            
+            <!-- Quick Score Buttons -->
+            <div class="quick-scores">
+                <div class="score-row">
+                    @foreach (var score in new[] { 180, 140, 100, 60, 26, 20 })
+                    {
+                        <button class="quick-score-btn" @onclick="() => QuickScore(score)">@score</button>
+                    }
+                </div>
+                <div class="score-row">
+                    @foreach (var score in new[] { 81, 45, 41, 25, 9, 5 })
+                    {
+                        <button class="quick-score-btn" @onclick="() => QuickScore(score)">@score</button>
+                    }
+                </div>
+                <button class="quick-score-btn bust-btn" @onclick="() => QuickScore(0)">BUST</button>
+            </div>
+            
+            <!-- Match Controls -->
+            <div class="match-controls">
+                <button class="control-btn" @onclick="EndMatch">End Match</button>
+                <button class="control-btn" @onclick="BackToSetup">New Match</button>
+            </div>
+            
+            @if (currentMatch.IsFinished)
+            {
+                <div class="match-finished">
+                    <h2>Match Finished!</h2>
+                    <div class="winner">
+                        Winner: @(currentMatch.HomeLegsWon > currentMatch.AwayLegsWon ? currentMatch.HomePlayerName : currentMatch.AwayPlayerName)
+                    </div>
+                    <div class="final-score">@currentMatch.HomeLegsWon - @currentMatch.AwayLegsWon</div>
+                    <button class="finish-btn" @onclick="SaveMatch">Save Match</button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .live-scoring-container {
+        padding: 20px;
+        max-width: 1024px;
+        margin: 0 auto;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    /* Match Setup Styles */
+    .match-setup {
+        text-align: center;
+        padding: 40px;
+    }
+    
+    .match-setup h1 {
+        font-size: 2.5rem;
+        margin-bottom: 40px;
+        color: #333;
+    }
+    
+    .player-selection {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 40px;
+        margin-bottom: 40px;
+    }
+    
+    .player-select {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .player-select label {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #555;
+    }
+    
+    .player-dropdown {
+        padding: 15px;
+        font-size: 1.1rem;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        min-width: 200px;
+    }
+    
+    .vs-divider {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #666;
+    }
+    
+    .start-match-btn {
+        padding: 20px 40px;
+        font-size: 1.3rem;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    
+    .start-match-btn:hover:not(:disabled) {
+        background: #0056b3;
+    }
+    
+    .start-match-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    
+    /* Active Matches */
+    .active-matches {
+        margin-top: 40px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+    }
+    
+    .active-match-card {
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        margin: 10px 0;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    
+    .active-match-card:hover {
+        background: #f8f9fa;
+    }
+    
+    /* Scoring Interface */
+    .scoring-interface {
+        padding: 20px;
+    }
+    
+    .match-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .player-info {
+        text-align: center;
+        padding: 20px;
+        border-radius: 8px;
+        transition: all 0.3s;
+        min-width: 200px;
+    }
+    
+    .player-info.active {
+        background: #007bff;
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    .player-name {
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .player-score {
+        font-size: 3rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .player-average {
+        font-size: 1rem;
+        opacity: 0.8;
+    }
+    
+    .match-center {
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .leg-info, .legs-score, .turn-info {
+        margin: 5px 0;
+        font-size: 1.1rem;
+    }
+    
+    .legs-score {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #007bff;
+    }
+    
+    /* Current Turn */
+    .current-turn {
+        text-align: center;
+        padding: 20px;
+        background: #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .current-player {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .turn-scores {
+        font-size: 1.2rem;
+        color: #007bff;
+        margin-top: 10px;
+    }
+    
+    /* Score Input */
+    .score-input-section {
+        margin-bottom: 30px;
+    }
+    
+    .score-input {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-bottom: 15px;
+    }
+    
+    .score-textbox, .darts-textbox {
+        padding: 15px;
+        font-size: 1.5rem;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        text-align: center;
+        width: 120px;
+    }
+    
+    .score-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+    }
+    
+    .score-btn, .undo-btn {
+        padding: 15px 30px;
+        font-size: 1.2rem;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    
+    .score-btn {
+        background: #28a745;
+        color: white;
+    }
+    
+    .score-btn:hover:not(:disabled) {
+        background: #1e7e34;
+    }
+    
+    .score-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    
+    .undo-btn {
+        background: #ffc107;
+        color: #212529;
+    }
+    
+    .undo-btn:hover {
+        background: #e0a800;
+    }
+    
+    /* Quick Scores */
+    .quick-scores {
+        margin-bottom: 30px;
+    }
+    
+    .score-row {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 10px;
+    }
+    
+    .quick-score-btn {
+        padding: 20px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border: 2px solid #007bff;
+        background: white;
+        color: #007bff;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        min-width: 80px;
+    }
+    
+    .quick-score-btn:hover {
+        background: #007bff;
+        color: white;
+    }
+    
+    .bust-btn {
+        background: #dc3545;
+        color: white;
+        border-color: #dc3545;
+        width: 100%;
+        margin-top: 10px;
+    }
+    
+    .bust-btn:hover {
+        background: #c82333;
+    }
+    
+    /* Match Controls */
+    .match-controls {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 30px;
+    }
+    
+    .control-btn {
+        padding: 15px 25px;
+        font-size: 1.1rem;
+        border: 1px solid #6c757d;
+        background: white;
+        color: #6c757d;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .control-btn:hover {
+        background: #6c757d;
+        color: white;
+    }
+    
+    /* Match Finished */
+    .match-finished {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        text-align: center;
+        z-index: 1000;
+    }
+    
+    .match-finished h2 {
+        color: #28a745;
+        margin-bottom: 20px;
+    }
+    
+    .winner {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .final-score {
+        font-size: 2rem;
+        color: #007bff;
+        margin-bottom: 20px;
+    }
+    
+    .finish-btn {
+        padding: 15px 30px;
+        font-size: 1.2rem;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    
+    .finish-btn:hover {
+        background: #1e7e34;
+    }
+    
+    /* iPad Optimizations */
+    @@media (max-width: 1024px) {
+        .live-scoring-container {
+            padding: 10px;
+        }
+        
+        .match-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .player-selection {
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .score-row {
+            flex-wrap: wrap;
+        }
+        
+        .quick-score-btn {
+            min-width: 60px;
+            padding: 15px;
+        }
+    }
+</style>
+
+@code {
+    private List<PlayerModel> players = new();
+    private List<LiveMatch> activeMatches = new();
+    private LiveMatch? currentMatch;
+    private int selectedHomePlayerId = 0;
+    private int selectedAwayPlayerId = 0;
+    private int inputScore = 0;
+    private int inputDarts = 1;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlayers();
+        await LoadActiveMatches();
+    }
+    
+    private async Task LoadPlayers()
+    {
+        // Load real players from database
+        var playerResults = await PlayerRepo.GetPlayersAsync();
+        players = playerResults.ToList();
+        
+        // Fallback to canned data if no players in database
+        if (!players.Any())
+        {
+            players = new List<PlayerModel>
+            {
+                new() { Id = 1, Name = "John Smith", EloNumber = 1200 },
+                new() { Id = 2, Name = "Mike Johnson", EloNumber = 1150 },
+                new() { Id = 3, Name = "Sarah Wilson", EloNumber = 1300 },
+                new() { Id = 4, Name = "Dave Brown", EloNumber = 1100 },
+                new() { Id = 5, Name = "Lisa Davis", EloNumber = 1250 }
+            };
+        }
+    }
+    
+    private async Task LoadActiveMatches()
+    {
+        activeMatches = await LiveMatchService.GetActiveMatchesAsync();
+    }
+    
+    private async Task StartMatch()
+    {
+        if (selectedHomePlayerId > 0 && selectedAwayPlayerId > 0)
+        {
+            currentMatch = await LiveMatchService.CreateMatchAsync(selectedHomePlayerId, selectedAwayPlayerId);
+            StateHasChanged();
+        }
+    }
+    
+    private async Task ResumeMatch(int matchId)
+    {
+        currentMatch = await LiveMatchService.GetMatchAsync(matchId);
+        StateHasChanged();
+    }
+    
+    private async Task RecordScore(int score, int darts)
+    {
+        if (currentMatch != null && currentMatch.CanThrow)
+        {
+            await LiveMatchService.RecordThrowAsync(currentMatch.Id, currentMatch.CurrentPlayerId, score, darts);
+            currentMatch = await LiveMatchService.GetMatchAsync(currentMatch.Id);
+            
+            // Clear input
+            inputScore = 0;
+            inputDarts = 1;
+            
+            StateHasChanged();
+        }
+    }
+    
+    private async Task QuickScore(int score)
+    {
+        inputScore = score;
+        await RecordScore(score, inputDarts);
+    }
+    
+    private async Task UndoLastThrow()
+    {
+        if (currentMatch != null)
+        {
+            await LiveMatchService.UndoLastThrowAsync(currentMatch.Id, currentMatch.CurrentPlayerId);
+            currentMatch = await LiveMatchService.GetMatchAsync(currentMatch.Id);
+            StateHasChanged();
+        }
+    }
+    
+    private async Task SaveMatch()
+    {
+        if (currentMatch != null && currentMatch.IsFinished)
+        {
+            await LiveMatchService.FinishMatchAsync(currentMatch.Id);
+            currentMatch = null;
+            await LoadActiveMatches();
+            StateHasChanged();
+        }
+    }
+    
+    private void EndMatch()
+    {
+        currentMatch = null;
+        StateHasChanged();
+    }
+    
+    private void BackToSetup()
+    {
+        currentMatch = null;
+        selectedHomePlayerId = 0;
+        selectedAwayPlayerId = 0;
+        StateHasChanged();
+    }
+    
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await RecordScore(inputScore, inputDarts);
+        }
+    }
+} 

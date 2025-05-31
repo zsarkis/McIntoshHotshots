@@ -9,6 +9,7 @@ public interface ILegRepo
     Task<LegModel> GetLegByIdAsync(int id);
     Task<IEnumerable<LegModel>> GetLegsByMatchIdAsync(int matchId);
     Task<int> InsertLegAsync(LegModel leg);
+    Task<LegModel> CreateLegAsync(LegModel leg);
     Task<int> UpdateLegAsync(LegModel leg);
     Task<List<LegModel>> GetLegsByPlayerIdAsync(int playerId);
 }
@@ -132,5 +133,12 @@ public class LegRepo : ILegRepo
 
         var results = await connection.QueryAsync<LegModel>(query, new { PlayerId = playerId });
         return results.ToList();
+    }
+
+    public async Task<LegModel> CreateLegAsync(LegModel leg)
+    {
+        var id = await InsertLegAsync(leg);
+        leg.Id = id;
+        return leg;
     }
 }
