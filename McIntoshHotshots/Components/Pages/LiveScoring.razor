@@ -544,18 +544,22 @@
     
     private async Task LoadPlayers()
     {
-        // For now, using canned data - replace with actual repo call when ready
-        players = new List<PlayerModel>
-        {
-            new() { Id = 1, Name = "John Smith", EloNumber = 1200 },
-            new() { Id = 2, Name = "Mike Johnson", EloNumber = 1150 },
-            new() { Id = 3, Name = "Sarah Wilson", EloNumber = 1300 },
-            new() { Id = 4, Name = "Dave Brown", EloNumber = 1100 },
-            new() { Id = 5, Name = "Lisa Davis", EloNumber = 1250 }
-        };
+        // Load real players from database
+        var playerResults = await PlayerRepo.GetPlayersAsync();
+        players = playerResults.ToList();
         
-        // Uncomment when ready to use real data:
-        // players = await PlayerRepo.GetAllPlayersAsync();
+        // Fallback to canned data if no players in database
+        if (!players.Any())
+        {
+            players = new List<PlayerModel>
+            {
+                new() { Id = 1, Name = "John Smith", EloNumber = 1200 },
+                new() { Id = 2, Name = "Mike Johnson", EloNumber = 1150 },
+                new() { Id = 3, Name = "Sarah Wilson", EloNumber = 1300 },
+                new() { Id = 4, Name = "Dave Brown", EloNumber = 1100 },
+                new() { Id = 5, Name = "Lisa Davis", EloNumber = 1250 }
+            };
+        }
     }
     
     private async Task LoadActiveMatches()
