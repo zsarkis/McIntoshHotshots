@@ -65,31 +65,67 @@
         <div class="scoring-interface">
             <!-- Match Header -->
             <div class="match-header">
-                <div class="player-info home @(currentMatch.IsCurrentPlayerTurn(currentMatch.HomePlayerId) ? "active" : "")">
-                    <div class="player-name">@currentMatch.HomePlayerName</div>
-                    <div class="player-score">@currentMatch.HomeCurrentScore</div>
-                    <div class="player-average">Avg: @currentMatch.HomeSetAverage.ToString("F1")</div>
-                    @if (CanFinishInOneShot(currentMatch.HomeCurrentScore))
-                    {
-                        <div class="checkout-hint">CHECKOUT AVAILABLE!</div>
-                    }
-                </div>
-                
-                <div class="match-center">
-                    <div class="leg-info">Leg @currentMatch.CurrentLegNumber</div>
-                    <div class="legs-score">@currentMatch.HomeLegsWon - @currentMatch.AwayLegsWon</div>
-                    <div class="turn-info">Turn @currentMatch.CurrentTurnNumber</div>
-                </div>
-                
-                <div class="player-info away @(currentMatch.IsCurrentPlayerTurn(currentMatch.AwayPlayerId) ? "active" : "")">
-                    <div class="player-name">@currentMatch.AwayPlayerName</div>
-                    <div class="player-score">@currentMatch.AwayCurrentScore</div>
-                    <div class="player-average">Avg: @currentMatch.AwaySetAverage.ToString("F1")</div>
-                    @if (CanFinishInOneShot(currentMatch.AwayCurrentScore))
-                    {
-                        <div class="checkout-hint">CHECKOUT AVAILABLE!</div>
-                    }
-                </div>
+                @if (useAdvancedRuleEngine && dartsEngine != null)
+                {
+                    <!-- Advanced Engine Header -->
+                    var players = dartsEngine.GetPlayers();
+                    var currentPlayer = dartsEngine.GetCurrentPlayer();
+                    
+                    <div class="player-info home @(currentPlayer.Id == players[0].Id ? "active" : "")">
+                        <div class="player-name">@players[0].Id</div>
+                        <div class="player-score">@players[0].Score</div>
+                        <div class="player-average">Advanced Mode</div>
+                        @if (CanFinishInOneShot(players[0].Score))
+                        {
+                            <div class="checkout-hint">CHECKOUT AVAILABLE!</div>
+                        }
+                    </div>
+                    
+                    <div class="match-center">
+                        <div class="leg-info">Advanced Rule Engine</div>
+                        <div class="legs-score">501 Darts</div>
+                        <div class="turn-info">Darts: @dartsEngine.GetDartsThrown()/3</div>
+                    </div>
+                    
+                    <div class="player-info away @(currentPlayer.Id == players[1].Id ? "active" : "")">
+                        <div class="player-name">@players[1].Id</div>
+                        <div class="player-score">@players[1].Score</div>
+                        <div class="player-average">Advanced Mode</div>
+                        @if (CanFinishInOneShot(players[1].Score))
+                        {
+                            <div class="checkout-hint">CHECKOUT AVAILABLE!</div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <!-- Original Header -->
+                    <div class="player-info home @(currentMatch.IsCurrentPlayerTurn(currentMatch.HomePlayerId) ? "active" : "")">
+                        <div class="player-name">@currentMatch.HomePlayerName</div>
+                        <div class="player-score">@currentMatch.HomeCurrentScore</div>
+                        <div class="player-average">Avg: @currentMatch.HomeSetAverage.ToString("F1")</div>
+                        @if (CanFinishInOneShot(currentMatch.HomeCurrentScore))
+                        {
+                            <div class="checkout-hint">CHECKOUT AVAILABLE!</div>
+                        }
+                    </div>
+                    
+                    <div class="match-center">
+                        <div class="leg-info">Leg @currentMatch.CurrentLegNumber</div>
+                        <div class="legs-score">@currentMatch.HomeLegsWon - @currentMatch.AwayLegsWon</div>
+                        <div class="turn-info">Turn @currentMatch.CurrentTurnNumber</div>
+                    </div>
+                    
+                    <div class="player-info away @(currentMatch.IsCurrentPlayerTurn(currentMatch.AwayPlayerId) ? "active" : "")">
+                        <div class="player-name">@currentMatch.AwayPlayerName</div>
+                        <div class="player-score">@currentMatch.AwayCurrentScore</div>
+                        <div class="player-average">Avg: @currentMatch.AwaySetAverage.ToString("F1")</div>
+                        @if (CanFinishInOneShot(currentMatch.AwayCurrentScore))
+                        {
+                            <div class="checkout-hint">CHECKOUT AVAILABLE!</div>
+                        }
+                    </div>
+                }
             </div>
             
             <!-- Current Turn Display -->
@@ -119,51 +155,176 @@
                 </div>
             }
             
-            <!-- Score Input -->
-            <div class="score-input-section">
-                <div class="score-input">
-                    <input type="number" @bind="inputScore" @onkeypress="HandleKeyPress" 
-                           placeholder="Turn total" min="0" max="180" class="score-textbox" />
-                </div>
-                
-                <div class="score-info">
-                    Enter the total score for this turn (0-180)
-                </div>
-                
-                <div class="score-buttons">
-                    <button class="score-btn" @onclick="() => RecordScore(inputScore)" 
-                            disabled="@(!CanRecordScore())">
-                        Record Turn
-                    </button>
-                    <button class="undo-btn" @onclick="UndoLastThrow">Undo</button>
+            <!-- Advanced Rule Engine Toggle -->
+            <div class="rule-engine-toggle">
+                <label>
+                    <input type="checkbox" @bind="useAdvancedRuleEngine" @bind:after="OnRuleEngineToggled" />
+                    Advanced Dart Input (Individual darts with Fat/Skinny singles)
+                </label>
+                <div class="mode-description">
+                    @if (useAdvancedRuleEngine)
+                    {
+                        <span class="mode-active">✓ Advanced Mode Active - Record individual darts with precise placement</span>
+                    }
+                    else
+                    {
+                        <span class="mode-inactive">Basic Mode - Use calculator below for turn totals. Toggle anytime to switch input methods.</span>
+                    }
                 </div>
             </div>
             
-            <!-- Quick Score Buttons -->
-            <div class="quick-scores">
-                <div class="score-row">
-                    @foreach (var score in new[] { 180, 140, 100, 81, 60, 45 })
+            <!-- Individual Dart Input (Advanced Mode) -->
+            @if (useAdvancedRuleEngine && dartsEngine != null && !dartsEngine.IsGameOver())
+            {
+                <div class="dart-input-section">
+                    <h3>Individual Dart Input</h3>
+                    <div class="dart-info">
+                        Current Player: @dartsEngine.GetCurrentPlayer().Id
+                        | Score: @dartsEngine.GetRemainingScore(dartsEngine.GetCurrentPlayer().Id)
+                        | Darts: @dartsEngine.GetDartsThrown()/3
+                    </div>
+                    
+                    <div class="dart-input-controls">
+                        <div class="segment-input">
+                            <label>Segment:</label>
+                            <select @bind="selectedSegment" class="dart-select">
+                                <option value="">Select...</option>
+                                @for (int i = 1; i <= 20; i++)
+                                {
+                                    <option value="@i">@i</option>
+                                }
+                                <option value="25">25 (Outer Bull)</option>
+                                <option value="bull">Bull (Inner)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="ring-input">
+                            <label>Ring:</label>
+                            <select @bind="selectedRing" class="dart-select">
+                                <option value="">Select...</option>
+                                <option value="fat-single">Fat Single (Wide area between Double and Treble)</option>
+                                <option value="skinny-single">Skinny Single (Narrow area between Treble and Bull)</option>
+                                <option value="double">Double</option>
+                                <option value="treble">Treble</option>
+                                <option value="single">Single (Generic)</option>
+                            </select>
+                        </div>
+                        
+                        <button class="record-dart-btn" @onclick="RecordIndividualDart" 
+                                disabled="@(string.IsNullOrEmpty(selectedSegment) || string.IsNullOrEmpty(selectedRing))">
+                            Record Dart
+                        </button>
+                    </div>
+                    
+                    <!-- Checkout Recommendations -->
+                    @if (dartsEngine != null)
                     {
-                        <button class="quick-score-btn" @onclick="() => QuickScore(score)" 
-                                disabled="@(!CanRecordScore())">@score</button>
+                        var currentPlayerId = dartsEngine.GetCurrentPlayer().Id;
+                        var currentScore = dartsEngine.GetRemainingScore(currentPlayerId);
+                        var recommendations = dartsEngine.GetCheckoutRecommendations(currentScore);
+                        
+                        @if (recommendations.Any())
+                        {
+                            <div class="advanced-checkout-hints">
+                                <h4>Checkout Recommendations for @currentScore:</h4>
+                                @foreach (var rec in recommendations)
+                                {
+                                    <div class="recommendation">
+                                        <strong>@rec.Darts darts:</strong> @rec.Combination (@rec.Description)
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    
+                    <!-- Game State Display -->
+                    @if (dartsEngine != null && dartsEngine.IsGameOver())
+                    {
+                        <div class="game-over-advanced">
+                            <h2>Game Over!</h2>
+                            <div class="winner-advanced">Winner: @dartsEngine.GetWinner()</div>
+                            <div class="final-scores">
+                                @foreach (var player in dartsEngine.GetPlayers())
+                                {
+                                    <div>@player.Id: @player.Score points</div>
+                                }
+                            </div>
+                        </div>
                     }
                 </div>
-                <div class="score-row">
-                    @foreach (var score in new[] { 41, 40, 26, 25, 20, 15 })
+            }
+            
+            <!-- Score Input Calculator -->
+            <div class="score-calculator">
+                <div class="calculator-display">
+                    <div class="display-label">Turn Total</div>
+                    @if (!string.IsNullOrEmpty(calculationDisplay))
                     {
-                        <button class="quick-score-btn" @onclick="() => QuickScore(score)" 
-                                disabled="@(!CanRecordScore())">@score</button>
+                        <div class="calculation-display">@calculationDisplay</div>
                     }
+                    <div class="display-value">@inputScore</div>
+                    <div class="display-hint">Max: 180</div>
                 </div>
-                <div class="score-row">
-                    @foreach (var score in new[] { 10, 9, 8, 7, 6, 5 })
-                    {
-                        <button class="quick-score-btn" @onclick="() => QuickScore(score)" 
-                                disabled="@(!CanRecordScore())">@score</button>
-                    }
+                
+                <div class="calculator-keypad">
+                    <!-- Number pad with operations -->
+                    <div class="keypad-numbers">
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(7)">7</button>
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(8)">8</button>
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(9)">9</button>
+                        <button class="calc-btn operation-btn" @onclick="() => SetOperation('*')">×</button>
+                        
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(4)">4</button>
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(5)">5</button>
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(6)">6</button>
+                        <button class="calc-btn operation-btn" @onclick="() => SetOperation('+')">+</button>
+                        
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(1)">1</button>
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(2)">2</button>
+                        <button class="calc-btn number-btn" @onclick="() => AppendDigit(3)">3</button>
+                        <button class="calc-btn equals-btn" @onclick="Calculate">=</button>
+                        
+                        <button class="calc-btn number-btn zero-btn" @onclick="() => AppendDigit(0)">0</button>
+                    </div>
+                    
+                    <!-- Action buttons -->
+                    <div class="keypad-actions">
+                        <button class="calc-btn clear-btn" @onclick="ClearInput">
+                            <span class="btn-icon">⌫</span>
+                            <span class="btn-text">Clear</span>
+                        </button>
+                        <button class="calc-btn backspace-btn" @onclick="Backspace">
+                            <span class="btn-icon">←</span>
+                        </button>
+                        <button class="calc-btn record-btn" @onclick="() => RecordScore(inputScore)" 
+                                disabled="@(!CanRecordScore() || inputScore < 0 || inputScore > 180)">
+                            <span class="btn-icon">✓</span>
+                            <span class="btn-text">Record</span>
+                        </button>
+                    </div>
                 </div>
-                <button class="quick-score-btn bust-btn" @onclick="() => QuickScore(0)" 
-                        disabled="@(!CanRecordScore())">MISS (0)</button>
+                
+                <!-- Quick Common Scores -->
+                <div class="quick-scores-compact">
+                    <div class="quick-scores-title">Quick Scores</div>
+                    <div class="quick-scores-grid">
+                        @foreach (var score in new[] { 180, 140, 100, 81, 60, 45, 26, 20 })
+                        {
+                            <button class="quick-btn" @onclick="() => SetScore(score)" 
+                                    disabled="@(!CanRecordScore())">@score</button>
+                        }
+                    </div>
+                    <button class="quick-btn miss-btn" @onclick="() => SetScore(0)" 
+                            disabled="@(!CanRecordScore())">MISS</button>
+                </div>
+            </div>
+            
+            <!-- Undo Button -->
+            <div class="undo-section">
+                <button class="undo-btn-large" @onclick="UndoLastThrow">
+                    <span class="undo-icon">↶</span>
+                    Undo Last Turn
+                </button>
             </div>
             
             <!-- Valid Checkout Hints -->
@@ -178,7 +339,7 @@
                         <div class="checkout-options">
                             @foreach (var checkout in validCheckouts)
                             {
-                                <button class="checkout-btn" @onclick="() => QuickScore(checkout)" 
+                                <button class="checkout-btn" @onclick="() => SetScore(checkout)" 
                                         disabled="@(!CanRecordScore())">
                                     D@(checkout/2)
                                 </button>
@@ -431,120 +592,263 @@
         font-weight: bold;
     }
     
-    /* Score Input */
-    .score-input-section {
+    /* Score Input Calculator */
+    .score-calculator {
         margin-bottom: 30px;
     }
     
-    .score-input {
-        display: flex;
-        gap: 15px;
-        justify-content: center;
-        margin-bottom: 15px;
+    .calculator-display {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        text-align: center;
+        border: 2px solid #dee2e6;
     }
     
-    .score-textbox {
-        padding: 15px;
-        font-size: 1.5rem;
-        border: 2px solid #ddd;
-        border-radius: 8px;
-        text-align: center;
-        width: 120px;
-    }
-    
-    .score-info {
-        text-align: center;
+    .display-label {
         font-size: 0.9rem;
         color: #666;
-        margin-bottom: 15px;
-        font-style: italic;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     
-    .score-buttons {
+    .calculation-display {
+        font-size: 1.2rem;
+        color: #666;
+        margin-bottom: 5px;
+        font-family: 'Courier New', monospace;
+        min-height: 20px;
+    }
+    
+    .display-value {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #007bff;
+        min-height: 60px;
         display: flex;
-        gap: 15px;
+        align-items: center;
         justify-content: center;
     }
     
-    .score-btn, .undo-btn {
-        padding: 15px 30px;
-        font-size: 1.2rem;
-        border: none;
-        border-radius: 8px;
+    .display-hint {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .calculator-keypad {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .keypad-numbers {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+    }
+    
+    .keypad-numbers .zero-btn {
+        grid-column: 1 / 3;
+    }
+    
+    .keypad-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr 2fr;
+        gap: 12px;
+    }
+    
+    .calc-btn {
+        padding: 20px;
+        font-size: 1.4rem;
+        font-weight: bold;
+        border: 2px solid #007bff;
+        background: white;
+        color: #007bff;
+        border-radius: 12px;
         cursor: pointer;
-        transition: background 0.3s;
+        transition: all 0.2s;
+        min-height: 70px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        touch-action: manipulation;
+        user-select: none;
     }
     
-    .score-btn {
-        background: #28a745;
+    .calc-btn:active {
+        transform: scale(0.95);
+    }
+    
+    .calc-btn:hover:not(:disabled) {
+        background: #007bff;
         color: white;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
     }
     
-    .score-btn:hover:not(:disabled) {
-        background: #1e7e34;
-    }
-    
-    .score-btn:disabled {
-        background: #ccc;
+    .calc-btn:disabled {
+        background: #f8f9fa;
+        color: #6c757d;
+        border-color: #dee2e6;
         cursor: not-allowed;
+        transform: none;
     }
     
-    .undo-btn {
+    .number-btn {
+        font-size: 1.8rem;
+    }
+    
+    .clear-btn {
         background: #ffc107;
         color: #212529;
+        border-color: #ffc107;
     }
     
-    .undo-btn:hover {
+    .clear-btn:hover:not(:disabled) {
         background: #e0a800;
+        border-color: #e0a800;
     }
     
-    /* Quick Scores */
-    .quick-scores {
-        margin-bottom: 30px;
+    .backspace-btn {
+        background: #6c757d;
+        color: white;
+        border-color: #6c757d;
+        font-size: 1.6rem;
     }
     
-    .score-row {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-        margin-bottom: 10px;
+    .backspace-btn:hover:not(:disabled) {
+        background: #545b62;
+        border-color: #545b62;
     }
     
-    .quick-score-btn {
-        padding: 20px;
+    .record-btn {
+        background: #28a745;
+        color: white;
+        border-color: #28a745;
+        font-weight: bold;
+    }
+    
+    .record-btn:hover:not(:disabled) {
+        background: #1e7e34;
+        border-color: #1e7e34;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    
+    .btn-icon {
         font-size: 1.2rem;
+    }
+    
+    .btn-text {
+        font-size: 0.9rem;
+        font-weight: normal;
+    }
+    
+    .quick-scores-compact {
+        background: #e9ecef;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .quick-scores-title {
+        font-size: 1rem;
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 15px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .quick-scores-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+    
+    .quick-btn {
+        padding: 15px 10px;
+        font-size: 1rem;
         font-weight: bold;
         border: 2px solid #007bff;
         background: white;
         color: #007bff;
         border-radius: 8px;
         cursor: pointer;
-        transition: all 0.3s;
-        min-width: 80px;
+        transition: all 0.2s;
+        touch-action: manipulation;
+        user-select: none;
     }
     
-    .quick-score-btn:hover:not(:disabled) {
+    .quick-btn:active {
+        transform: scale(0.95);
+    }
+    
+    .quick-btn:hover:not(:disabled) {
         background: #007bff;
         color: white;
     }
     
-    .quick-score-btn:disabled {
+    .quick-btn:disabled {
         background: #f8f9fa;
         color: #6c757d;
         border-color: #dee2e6;
         cursor: not-allowed;
+        transform: none;
     }
     
-    .bust-btn {
+    .miss-btn {
         background: #dc3545;
         color: white;
         border-color: #dc3545;
-        width: 100%;
-        margin-top: 10px;
+        grid-column: 1 / -1;
+        font-weight: bold;
     }
     
-    .bust-btn:hover:not(:disabled) {
+    .miss-btn:hover:not(:disabled) {
         background: #c82333;
+        border-color: #c82333;
+    }
+    
+    /* Undo Button */
+    .undo-section {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .undo-btn-large {
+        padding: 15px 30px;
+        font-size: 1.2rem;
+        background: #6c757d;
+        color: white;
+        border: 2px solid #6c757d;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        touch-action: manipulation;
+        user-select: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .undo-btn-large:active {
+        transform: scale(0.95);
+    }
+    
+    .undo-btn-large:hover:not(:disabled) {
+        background: #545b62;
+        border-color: #545b62;
+    }
+    
+    .undo-icon {
+        font-size: 1.4rem;
     }
     
     /* Checkout Hints */
@@ -662,33 +966,95 @@
         background: #1e7e34;
     }
     
-    /* iPad Optimizations */
-    @@media (max-width: 1024px) {
+    /* Mobile Optimizations */
+    @@media (max-width: 768px) {
         .live-scoring-container {
             padding: 10px;
         }
         
+        .calculator-display {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .display-value {
+            font-size: 2.5rem;
+            min-height: 50px;
+        }
+        
+        .calc-btn {
+            min-height: 60px;
+            padding: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .number-btn {
+            font-size: 1.6rem;
+        }
+        
+        .quick-scores-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+        
         .match-header {
             flex-direction: column;
-            gap: 20px;
-        }
-        
-        .player-selection {
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .score-row {
-            flex-wrap: wrap;
-        }
-        
-        .quick-score-btn {
-            min-width: 60px;
+            gap: 15px;
             padding: 15px;
         }
         
-        .checkout-options {
-            justify-content: center;
+        .player-info {
+            min-width: auto;
+            width: 100%;
+        }
+        
+        .player-score {
+            font-size: 2.5rem;
+        }
+    }
+    
+    /* Small Mobile Optimizations */
+    @@media (max-width: 480px) {
+        .calculator-keypad {
+            gap: 10px;
+        }
+        
+        .keypad-numbers {
+            gap: 8px;
+        }
+        
+        .keypad-actions {
+            gap: 8px;
+        }
+        
+        .calc-btn {
+            min-height: 55px;
+            padding: 12px;
+            font-size: 1.1rem;
+        }
+        
+        .number-btn {
+            font-size: 1.4rem;
+        }
+        
+        .display-value {
+            font-size: 2rem;
+        }
+        
+        .quick-scores-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .undo-btn-large {
+            padding: 12px 20px;
+            font-size: 1rem;
+        }
+    }
+    
+    /* Prevent zoom on input focus for iOS */
+    @@media screen and (-webkit-min-device-pixel-ratio: 0) {
+        input, select, textarea {
+            font-size: 16px !important;
         }
     }
     
@@ -718,6 +1084,186 @@
         outline: none;
         box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
     }
+    
+    .operation-btn {
+        background: #fd7e14;
+        color: white;
+        border-color: #fd7e14;
+        font-size: 1.6rem;
+        font-weight: bold;
+    }
+    
+    .operation-btn:hover:not(:disabled) {
+        background: #e8590c;
+        border-color: #e8590c;
+        box-shadow: 0 4px 12px rgba(253, 126, 20, 0.3);
+    }
+    
+    .equals-btn {
+        background: #28a745;
+        color: white;
+        border-color: #28a745;
+        font-size: 1.6rem;
+        font-weight: bold;
+    }
+    
+    .equals-btn:hover:not(:disabled) {
+        background: #1e7e34;
+        border-color: #1e7e34;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    
+    /* Advanced Rule Engine Styles */
+    .rule-engine-toggle {
+        text-align: center;
+        margin: 20px 0;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 2px solid #dee2e6;
+    }
+    
+    .rule-engine-toggle label {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #495057;
+        cursor: pointer;
+    }
+    
+    .rule-engine-toggle input[type="checkbox"] {
+        margin-right: 8px;
+        transform: scale(1.2);
+    }
+    
+    .mode-description {
+        margin-top: 8px;
+        font-size: 0.95rem;
+    }
+
+    .mode-active {
+        color: #28a745;
+        font-weight: 500;
+    }
+
+    .mode-inactive {
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .dart-input-section {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border: 2px solid #2196f3;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .dart-input-section h3 {
+        margin-top: 0;
+        color: #1976d2;
+        text-align: center;
+    }
+    
+    .dart-info {
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin: 15px 0;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+    }
+    
+    .dart-input-controls {
+        display: flex;
+        gap: 15px;
+        align-items: end;
+        justify-content: center;
+        margin: 20px 0;
+        flex-wrap: wrap;
+    }
+    
+    .segment-input, .ring-input {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .dart-select {
+        padding: 10px;
+        border: 2px solid #2196f3;
+        border-radius: 6px;
+        font-size: 1rem;
+        min-width: 120px;
+    }
+    
+    .record-dart-btn {
+        padding: 12px 20px;
+        background: #2196f3;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    
+    .record-dart-btn:hover:not(:disabled) {
+        background: #1976d2;
+    }
+    
+    .record-dart-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    
+    .advanced-checkout-hints {
+        background: rgba(76, 175, 80, 0.1);
+        border: 2px solid #4caf50;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+    
+    .advanced-checkout-hints h4 {
+        margin-top: 0;
+        color: #2e7d32;
+    }
+    
+    .recommendation {
+        padding: 8px;
+        margin: 5px 0;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+    
+    .game-over-advanced {
+        text-align: center;
+        background: rgba(76, 175, 80, 0.2);
+        border: 3px solid #4caf50;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .game-over-advanced h2 {
+        color: #2e7d32;
+        margin-bottom: 15px;
+    }
+    
+    .winner-advanced {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #1b5e20;
+        margin-bottom: 10px;
+    }
+    
+    .final-scores div {
+        margin: 5px 0;
+        font-size: 1.1rem;
+    }
 </style>
 
 @code {
@@ -728,6 +1274,16 @@
     private int selectedAwayPlayerId = 0;
     private int inputScore = 0;
     private string errorMessage = string.Empty;
+    private string calculationDisplay = string.Empty;
+    private int storedValue = 0;
+    private char currentOperation = ' ';
+    private bool waitingForOperand = false;
+    
+    // New 501 Darts Rule Engine
+    private DartsRuleEngine? dartsEngine;
+    private bool useAdvancedRuleEngine = true;
+    private string selectedSegment = string.Empty;
+    private string selectedRing = string.Empty;
     
     protected override async Task OnInitializedAsync()
     {
@@ -765,6 +1321,13 @@
         if (selectedHomePlayerId > 0 && selectedAwayPlayerId > 0)
         {
             currentMatch = await LiveMatchService.CreateMatchAsync(selectedHomePlayerId, selectedAwayPlayerId);
+            
+            // Initialize the new rule engine with player names
+            if (useAdvancedRuleEngine && currentMatch != null)
+            {
+                dartsEngine = new DartsRuleEngine(currentMatch.HomePlayerName, currentMatch.AwayPlayerName);
+            }
+            
             StateHasChanged();
         }
     }
@@ -772,20 +1335,28 @@
     private async Task ResumeMatch(int matchId)
     {
         currentMatch = await LiveMatchService.GetMatchAsync(matchId);
+        
+        // Initialize the rule engine for resumed match
+        if (useAdvancedRuleEngine && currentMatch != null)
+        {
+            dartsEngine = new DartsRuleEngine(currentMatch.HomePlayerName, currentMatch.AwayPlayerName);
+            // TODO: Sync engine state with current match state if needed
+        }
+        
         StateHasChanged();
     }
     
-    private async Task RecordScore(int score)
+        private async Task RecordScore(int score)
     {
         if (currentMatch == null || !CanRecordScore())
         {
             return;
         }
-        
+
         // Validate with rule engine first (assume 3 darts)
         var currentPlayerScore = currentMatch.GetPlayerScore(currentMatch.CurrentPlayerId);
         var ruleResult = DartsRuleEngine.ValidateThrow(currentPlayerScore, score);
-        
+
         if (!ruleResult.IsValid)
         {
             errorMessage = ruleResult.ErrorMessage;
@@ -803,8 +1374,8 @@
         {
             currentMatch = await LiveMatchService.GetMatchAsync(currentMatch.Id);
             
-            // Clear input
-            inputScore = 0;
+            // Clear calculator
+            ClearInput();
             
             StateHasChanged();
         }
@@ -813,12 +1384,6 @@
             errorMessage = "Failed to record throw. Please try again.";
             StateHasChanged();
         }
-    }
-    
-    private async Task QuickScore(int score)
-    {
-        inputScore = score;
-        await RecordScore(score);
     }
     
     private async Task UndoLastThrow()
@@ -859,11 +1424,154 @@
         StateHasChanged();
     }
     
-    private async Task HandleKeyPress(KeyboardEventArgs e)
+    // Calculator methods
+    private void AppendDigit(int digit)
     {
-        if (e.Key == "Enter")
+        if (waitingForOperand)
         {
-            await RecordScore(inputScore);
+            inputScore = digit;
+            waitingForOperand = false;
+        }
+        else
+        {
+            if (inputScore == 0)
+            {
+                inputScore = digit;
+            }
+            else
+            {
+                int newScore = inputScore * 10 + digit;
+                if (newScore <= 999) // Allow building larger numbers for calculations
+                {
+                    inputScore = newScore;
+                }
+            }
+        }
+        
+        // Update calculation display
+        UpdateCalculationDisplay();
+        
+        // Clear any error when user starts typing
+        errorMessage = string.Empty;
+        StateHasChanged();
+    }
+    
+    private void Backspace()
+    {
+        if (waitingForOperand)
+        {
+            return;
+        }
+        
+        inputScore = inputScore / 10;
+        UpdateCalculationDisplay();
+        errorMessage = string.Empty;
+        StateHasChanged();
+    }
+    
+    private void ClearInput()
+    {
+        inputScore = 0;
+        storedValue = 0;
+        currentOperation = ' ';
+        calculationDisplay = string.Empty;
+        waitingForOperand = false;
+        errorMessage = string.Empty;
+        StateHasChanged();
+    }
+    
+    private void SetScore(int score)
+    {
+        ClearInput();
+        inputScore = score;
+        errorMessage = string.Empty;
+        StateHasChanged();
+    }
+    
+    private void SetOperation(char operation)
+    {
+        if (currentOperation != ' ' && !waitingForOperand)
+        {
+            // Chain operations
+            Calculate();
+        }
+        
+        storedValue = inputScore;
+        currentOperation = operation;
+        waitingForOperand = true;
+        
+        UpdateCalculationDisplay();
+        errorMessage = string.Empty;
+        StateHasChanged();
+    }
+    
+    private void Calculate()
+    {
+        if (currentOperation == ' ' || waitingForOperand)
+        {
+            return;
+        }
+        
+        int result = storedValue;
+        
+        try
+        {
+            switch (currentOperation)
+            {
+                case '+':
+                    result = storedValue + inputScore;
+                    break;
+                case '*':
+                    result = storedValue * inputScore;
+                    break;
+            }
+            
+            if (result > 180)
+            {
+                errorMessage = "Result exceeds maximum dart score (180)";
+                StateHasChanged();
+                return;
+            }
+            
+            if (result < 0)
+            {
+                errorMessage = "Result cannot be negative";
+                StateHasChanged();
+                return;
+            }
+            
+            // Check for impossible dart scores
+            if (!DartsRuleEngine.IsPossibleDartScore(result, 3))
+            {
+                errorMessage = $"Invalid score: {result} is not possible with 3 darts";
+                StateHasChanged();
+                return;
+            }
+            
+            inputScore = result;
+            storedValue = 0;
+            currentOperation = ' ';
+            calculationDisplay = string.Empty;
+            waitingForOperand = false;
+            errorMessage = string.Empty;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Invalid calculation";
+        }
+        
+        StateHasChanged();
+    }
+    
+    private void UpdateCalculationDisplay()
+    {
+        if (currentOperation != ' ')
+        {
+            calculationDisplay = $"{storedValue} {currentOperation} {(waitingForOperand ? "" : inputScore.ToString())}";
+        }
+        else
+        {
+            calculationDisplay = string.Empty;
         }
     }
     
@@ -894,5 +1602,148 @@
             .Where(t => t.IsBust && t.LegNumber == currentMatch.CurrentLegNumber)
             .OrderByDescending(t => t.Timestamp)
             .FirstOrDefault();
+    }
+    
+    // Advanced Rule Engine Methods
+    private async Task OnRuleEngineToggled()
+    {
+        if (currentMatch == null) return;
+        
+        if (useAdvancedRuleEngine)
+        {
+            // Switching TO advanced mode - sync current match state to engine
+            if (dartsEngine == null)
+            {
+                dartsEngine = new DartsRuleEngine(currentMatch.HomePlayerName, currentMatch.AwayPlayerName);
+            }
+            
+            // Sync current scores from the match to the rule engine
+            var homePlayers = dartsEngine.GetPlayers().Where(p => p.Id == currentMatch.HomePlayerName).ToList();
+            var awayPlayers = dartsEngine.GetPlayers().Where(p => p.Id == currentMatch.AwayPlayerName).ToList();
+            
+            if (homePlayers.Any())
+                homePlayers.First().Score = currentMatch.HomeCurrentScore;
+            if (awayPlayers.Any())
+                awayPlayers.First().Score = currentMatch.AwayCurrentScore;
+            
+            // Sync current player - ensure the rule engine has the same current player as the match
+            var currentPlayerName = currentMatch.CurrentPlayerId == currentMatch.HomePlayerId 
+                ? currentMatch.HomePlayerName 
+                : currentMatch.AwayPlayerName;
+            
+            // Set the current player in the rule engine to match the basic mode
+            dartsEngine.SetCurrentPlayer(currentPlayerName);
+                
+            errorMessage = "Switched to Advanced Mode - scores and current player synced";
+        }
+        else
+        {
+            // Switching FROM advanced mode - sync engine state back to match
+            if (dartsEngine != null)
+            {
+                var players = dartsEngine.GetPlayers();
+                var homePlayer = players.FirstOrDefault(p => p.Id == currentMatch.HomePlayerName);
+                var awayPlayer = players.FirstOrDefault(p => p.Id == currentMatch.AwayPlayerName);
+                
+                if (homePlayer != null)
+                    currentMatch.HomeCurrentScore = homePlayer.Score;
+                if (awayPlayer != null)
+                    currentMatch.AwayCurrentScore = awayPlayer.Score;
+                
+                // Sync current player from engine back to match
+                var currentEnginePlayer = dartsEngine.GetCurrentPlayer();
+                if (currentEnginePlayer.Id == currentMatch.HomePlayerName)
+                {
+                    currentMatch.CurrentPlayerId = currentMatch.HomePlayerId;
+                }
+                else if (currentEnginePlayer.Id == currentMatch.AwayPlayerName)
+                {
+                    currentMatch.CurrentPlayerId = currentMatch.AwayPlayerId;
+                }
+                    
+                errorMessage = "Switched to Basic Mode - scores and current player synced";
+            }
+            else
+            {
+                errorMessage = "Switched to Basic Mode";
+            }
+        }
+        
+        StateHasChanged();
+        
+        // Clear the message after a delay
+        await Task.Delay(2000);
+        if (errorMessage.Contains("synced") || errorMessage.Contains("Basic Mode"))
+        {
+            errorMessage = string.Empty;
+            StateHasChanged();
+        }
+    }
+    
+    private string GetDartDescription(DartsThrowResult result)
+    {
+        var segment = result.Segment;
+        var ringType = result.RingType;
+        
+        return ringType.ToLower() switch
+        {
+            "fat-single" => $"Fat Single {segment}",
+            "skinny-single" => $"Skinny Single {segment}",
+            "single" => $"Single {segment}",
+            "double" => $"Double {segment}",
+            "treble" => $"Treble {segment}",
+            _ => $"{ringType} {segment}"
+        };
+    }
+    
+    private async Task RecordIndividualDart()
+    {
+        if (dartsEngine == null || string.IsNullOrEmpty(selectedSegment) || string.IsNullOrEmpty(selectedRing))
+        {
+            return;
+        }
+        
+        var currentPlayerId = dartsEngine.GetCurrentPlayer().Id;
+        var result = dartsEngine.RecordThrow(currentPlayerId, selectedSegment, selectedRing);
+        
+        if (!result.IsValid)
+        {
+            errorMessage = result.ErrorMessage;
+            StateHasChanged();
+            return;
+        }
+        
+        // Clear error and reset selection
+        errorMessage = string.Empty;
+        selectedSegment = string.Empty;
+        selectedRing = string.Empty;
+        
+        // Show result information
+        if (result.IsBust)
+        {
+            errorMessage = $"BUST! {result.BustReason} (Hit {GetDartDescription(result)})";
+        }
+        else if (result.IsFinish)
+        {
+            // Game over!
+            errorMessage = $"GAME OVER! {result.WinnerId} wins with {GetDartDescription(result)}!";
+        }
+        else
+        {
+            // Normal throw
+            var dartPoints = result.DartPoints;
+            var newScore = result.NewScore;
+            errorMessage = $"{GetDartDescription(result)} = {dartPoints} points. New score: {newScore}";
+        }
+        
+        StateHasChanged();
+        
+        // Clear the message after a delay
+        await Task.Delay(3000);
+        if (!result.IsBust && !result.IsFinish)
+        {
+            errorMessage = string.Empty;
+            StateHasChanged();
+        }
     }
 } 
