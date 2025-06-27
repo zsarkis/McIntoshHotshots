@@ -162,30 +162,17 @@ public class DartsRuleEngineTests
         // Arrange
         var engine = new DartsRuleEngine("Player1", "Player2");
         
-        // Manually set up a scenario where player has 2 points left
-        // This is complex to set up precisely, so we'll simulate
-        while (engine.GetRemainingScore("Player1") > 3)
-        {
-            engine.RecordThrow("Player1", "1", "single");
-            if (engine.GetDartsThrown() == 0) // Turn ended
-            {
-                while (engine.GetCurrentPlayer().Id != "Player1")
-                {
-                    engine.RecordThrow("Player2", "1", "single");
-                    if (engine.GetDartsThrown() == 0) break;
-                }
-            }
-        }
+        // Directly set player to exactly 2 points so next dart leaves 1
+        var player1 = engine.GetPlayers().First(p => p.Id == "Player1");
+        player1.Score = 2;
 
         // Act - Try to leave exactly 1 point
         var result = engine.RecordThrow("Player1", "1", "single");
 
         // Assert
-        if (engine.GetRemainingScore("Player1") == 1 || result.NewScore == 1)
-        {
-            Assert.IsTrue(result.IsBust);
-            Assert.AreEqual("Cannot finish on 1 (no double 0.5)", result.BustReason);
-        }
+        Assert.IsTrue(result.IsBust);
+        Assert.AreEqual("Cannot finish on 1 (no double 0.5)", result.BustReason);
+        Assert.AreEqual(2, result.NewScore); // Score should be reset to start of turn
     }
 
     [TestMethod]
@@ -218,32 +205,17 @@ public class DartsRuleEngineTests
         // Arrange
         var engine = new DartsRuleEngine("Player1", "Player2");
         
-        // Set up player with exactly 20 points
-        while (engine.GetRemainingScore("Player1") > 20)
-        {
-            engine.RecordThrow("Player1", "20", "single");
-            if (engine.GetDartsThrown() == 0)
-            {
-                while (engine.GetCurrentPlayer().Id != "Player1")
-                {
-                    engine.RecordThrow("Player2", "1", "single");
-                    if (engine.GetDartsThrown() == 0) break;
-                }
-            }
-        }
-
-        var scoreBefore = engine.GetRemainingScore("Player1");
+        // Directly set player to exactly 20 points
+        var player1 = engine.GetPlayers().First(p => p.Id == "Player1");
+        player1.Score = 20;
         
         // Act - Try to finish with single 20 (should bust)
         var result = engine.RecordThrow("Player1", "20", "single");
 
         // Assert
-        if (scoreBefore == 20)
-        {
-            Assert.IsTrue(result.IsBust);
-            Assert.AreEqual("Must finish with a double", result.BustReason);
-            Assert.AreEqual(scoreBefore, result.NewScore); // Score reset
-        }
+        Assert.IsTrue(result.IsBust);
+        Assert.AreEqual("Must finish with a double", result.BustReason);
+        Assert.AreEqual(20, result.NewScore); // Score reset to start of turn
     }
 
     [TestMethod]
@@ -267,30 +239,18 @@ public class DartsRuleEngineTests
     {
         // Arrange
         var engine = new DartsRuleEngine("Player1", "Player2");
+        
+        // Set up a guaranteed bust scenario - player has 30 points, throw 60
+        var player1 = engine.GetPlayers().First(p => p.Id == "Player1");
+        player1.Score = 30;
 
-        // Act - Throw one dart that busts
-        var result = engine.RecordThrow("Player1", "20", "treble"); // Big score to potentially bust later
-        // Continue until we can create a bust scenario
-        while (!result.IsBust)
-        {
-            if (engine.GetCurrentPlayer().Id == "Player1")
-            {
-                result = engine.RecordThrow("Player1", "20", "treble");
-            }
-            else
-            {
-                engine.RecordThrow("Player2", "1", "single");
-                engine.RecordThrow("Player2", "1", "single");
-                engine.RecordThrow("Player2", "1", "single");
-            }
-        }
+        // Act - Throw a dart that will definitely bust (60 > 30)
+        var result = engine.RecordThrow("Player1", "20", "treble"); // 60 points
 
         // Assert
-        if (result.IsBust)
-        {
-            Assert.AreEqual(0, engine.GetDartsThrown()); // Turn ended
-            Assert.AreNotEqual("Player1", engine.GetCurrentPlayer().Id); // Turn advanced
-        }
+        Assert.IsTrue(result.IsBust);
+        Assert.AreEqual(0, engine.GetDartsThrown()); // Turn ended
+        Assert.AreEqual("Player2", engine.GetCurrentPlayer().Id); // Turn advanced
     }
 
     [TestMethod]
@@ -343,45 +303,14 @@ public class DartsRuleEngineTests
         // Arrange
         var engine = new DartsRuleEngine("Player1", "Player2");
         
-        // Finish the game (simplified setup)
-        while (!engine.IsGameOver())
-        {
-            var currentPlayer = engine.GetCurrentPlayer().Id;
-            var currentScore = engine.GetRemainingScore(currentPlayer);
-            
-            if (currentScore == 40)
-            {
-                engine.RecordThrow(currentPlayer, "20", "double"); // Win
-                break;
-            }
-            else if (currentScore > 40)
-            {
-                engine.RecordThrow(currentPlayer, "1", "single");
-            }
-            else if (currentScore < 40 && currentScore > 2 && currentScore % 2 == 0)
-            {
-                // Try to finish with appropriate double
-                var doubleValue = currentScore / 2;
-                if (doubleValue <= 20)
-                {
-                    engine.RecordThrow(currentPlayer, doubleValue.ToString(), "double");
-                    break;
-                }
-                else
-                {
-                    engine.RecordThrow(currentPlayer, "1", "single");
-                }
-            }
-            else
-            {
-                engine.RecordThrow(currentPlayer, "1", "single");
-            }
-            
-            if (engine.GetDartsThrown() == 0) // Turn ended naturally
-            {
-                continue;
-            }
-        }
+        // Directly set up a finish scenario - player at exactly 40 points
+        var player1 = engine.GetPlayers().First(p => p.Id == "Player1");
+        player1.Score = 40;
+        
+        // Finish the game with double 20
+        var finishResult = engine.RecordThrow("Player1", "20", "double");
+        Assert.IsTrue(finishResult.IsFinish);
+        Assert.IsTrue(engine.IsGameOver());
 
         // Act - Try to throw after game over
         var result = engine.RecordThrow("Player1", "20", "single");
@@ -444,18 +373,22 @@ public class DartsRuleEngineTests
         engine.RecordThrow("Player1", "20", "single"); // 481
         engine.RecordThrow("Player1", "19", "single"); // 462
         
-        var scoreBeforeBust = engine.GetRemainingScore("Player1");
+        // Record the current score before setting up bust scenario
+        var scoreAfterTwoDarts = engine.GetRemainingScore("Player1"); // Should be 462
         
-        // Act - Throw a dart that would bust
-        var bustResult = engine.RecordThrow("Player1", "20", "treble"); // 60 points, likely bust or big reduction
+        // Now set up a guaranteed bust scenario by making the third dart a big score
+        var player1 = engine.GetPlayers().First(p => p.Id == "Player1");
+        player1.Score = 30; // Set low enough that treble 20 (60) will bust
+        
+        // Act - Throw a dart that will bust
+        var bustResult = engine.RecordThrow("Player1", "20", "treble"); // 60 points
 
-        // The exact behavior depends on the current score, but if it's a bust:
-        if (bustResult.IsBust)
-        {
-            // Assert - Score should be reset to start of turn (501 - 20 = 481)
-            Assert.AreEqual(481, bustResult.NewScore);
-            Assert.AreEqual("Player2", engine.GetCurrentPlayer().Id);
-        }
+        // Assert
+        Assert.IsTrue(bustResult.IsBust);
+        // Score should be reset to start of turn, which was 501 at the beginning
+        // Since we manipulated the score mid-turn, it resets to the actual start-of-turn score
+        Assert.AreEqual(501, bustResult.NewScore); // Start of turn was 501
+        Assert.AreEqual("Player2", engine.GetCurrentPlayer().Id);
     }
 
     [TestMethod]
