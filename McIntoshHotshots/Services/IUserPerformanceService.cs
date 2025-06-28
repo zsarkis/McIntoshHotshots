@@ -7,6 +7,62 @@ public interface IUserPerformanceService
     Task<UserPerformanceData> GetUserPerformanceDataAsync(string userId, CancellationToken cancellationToken = default);
     Task<HeadToHeadData> GetHeadToHeadDataAsync(string userId, string opponentName, CancellationToken cancellationToken = default);
     Task<List<string>> GetOpponentListAsync(string userId, CancellationToken cancellationToken = default);
+    Task<DetailedLegAnalysis> GetDetailedLegAnalysisAsync(string userId, string opponentName, CancellationToken cancellationToken = default);
+    Task<FirstNineAnalysis> GetFirstNineAnalysisAsync(string userId, string? opponentName = null, CancellationToken cancellationToken = default);
+    Task<ScoreDownToValueAnalysis> GetScoreDownToValueAnalysisAsync(string userId, int targetValue, string? opponentName = null, CancellationToken cancellationToken = default);
+    Task<FirstNineAnalysis> GetAnyPlayerFirstNineAnalysisAsync(string playerName, CancellationToken cancellationToken = default);
+    Task<ScoreDownToValueAnalysis> GetAnyPlayerScoreDownToValueAnalysisAsync(string playerName, int targetValue, CancellationToken cancellationToken = default);
+    Task<UserPerformanceData> GetAnyPlayerPerformanceDataAsync(string playerName, CancellationToken cancellationToken = default);
+}
+
+public class DetailedLegAnalysis
+{
+    public string OpponentName { get; set; } = "";
+    public int TotalLegs { get; set; }
+    public List<string> CommonScoresLeft { get; set; } = new();
+    public List<string> MissedCheckouts { get; set; } = new();
+    public List<string> SuccessfulCheckouts { get; set; } = new();
+    public double CheckoutSuccessRate { get; set; }
+    public List<string> ScoringPatterns { get; set; } = new();
+    public List<string> WeakAreas { get; set; } = new();
+    public List<string> Strengths { get; set; } = new();
+    public List<string> SpecificInsights { get; set; } = new();
+    public double AverageTurnsPerLeg { get; set; }
+    public int HighestFinish { get; set; }
+    public List<string> TurnAnalysis { get; set; } = new();
+}
+
+public class FirstNineAnalysis
+{
+    public string? OpponentName { get; set; }
+    public double PlayerFirstNineAverage { get; set; }
+    public double OpponentFirstNineAverage { get; set; }
+    public int TotalLegsAnalyzed { get; set; }
+    public List<double> PlayerFirstNineAverages { get; set; } = new(); // Average per 3 darts for each leg
+    public List<double> OpponentFirstNineAverages { get; set; } = new(); // Average per 3 darts for each leg
+    public string Winner { get; set; } = "";
+    public double Difference { get; set; }
+    public List<string> Insights { get; set; } = new();
+    public bool IsOpponentComparison { get; set; }
+}
+
+public class ScoreDownToValueAnalysis
+{
+    public string? OpponentName { get; set; }
+    public int TargetValue { get; set; }
+    public double PlayerAverageDarts { get; set; }
+    public double OpponentAverageDarts { get; set; }
+    public int TotalLegsAnalyzed { get; set; }
+    public List<int> PlayerDartCounts { get; set; } = new();
+    public List<int> OpponentDartCounts { get; set; } = new();
+    public string Winner { get; set; } = "";
+    public double Difference { get; set; }
+    public List<string> Insights { get; set; } = new();
+    public bool IsOpponentComparison { get; set; }
+    public double PlayerFastestDarts { get; set; }
+    public double PlayerSlowestDarts { get; set; }
+    public double OpponentFastestDarts { get; set; }
+    public double OpponentSlowestDarts { get; set; }
 }
 
 public class UserPerformanceData

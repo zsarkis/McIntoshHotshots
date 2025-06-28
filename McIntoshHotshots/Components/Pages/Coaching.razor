@@ -201,7 +201,24 @@
             return "I'm sorry, I couldn't identify your user account. Please try logging out and back in.";
         }
 
-        return await CoachingService.GetCoachingResponseAsync(userMessage, userId);
+        // Build conversation context from recent messages (last 6 messages for context)
+        var conversationContext = "";
+        if (messages.Count > 1)
+        {
+            var recentMessages = messages.TakeLast(6).ToList();
+            var contextParts = new List<string>();
+            
+            foreach (var msg in recentMessages)
+            {
+                var role = msg.IsUser ? "User" : "Assistant";
+                contextParts.Add($"{role}: {msg.Content}");
+            }
+            
+            conversationContext = "Recent conversation context:\n" + string.Join("\n", contextParts) + "\n\nCurrent question: ";
+        }
+
+        var messageWithContext = conversationContext + userMessage;
+        return await CoachingService.GetCoachingResponseAsync(messageWithContext, userId);
     }
 
     private string FormatMessage(string content)

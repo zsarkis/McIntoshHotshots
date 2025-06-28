@@ -253,6 +253,15 @@ public class CoachingService : ICoachingService
                 case "find_opponent":
                     return await ExecuteFindOpponentFunction(argumentsJson, userId, cancellationToken);
                 
+                case "get_detailed_leg_analysis":
+                    return await ExecuteDetailedLegAnalysisFunction(argumentsJson, userId, cancellationToken);
+                
+                case "get_first_nine_analysis":
+                    return await ExecuteFirstNineAnalysisFunction(argumentsJson, userId, cancellationToken);
+                
+                case "get_score_down_to_value_analysis":
+                    return await ExecuteScoreDownToValueFunction(argumentsJson, userId, cancellationToken);
+                
                 default:
                     _logger.LogWarning("Unknown function called: {FunctionName}", functionName);
                     return $"Unknown function: {functionName}";
@@ -401,6 +410,204 @@ public class CoachingService : ICoachingService
         });
     }
 
+    private async Task<string> ExecuteDetailedLegAnalysisFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing detailed leg analysis with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var opponentName = argsDoc.RootElement.GetProperty("opponent_name").GetString();
+
+            if (string.IsNullOrEmpty(opponentName))
+            {
+                _logger.LogWarning("No opponent name provided in detailed leg analysis request");
+                return "No opponent name provided";
+            }
+
+            _logger.LogInformation("Getting detailed leg analysis for user {UserId} vs {OpponentName}", userId, opponentName);
+            var analysis = await _performanceService.GetDetailedLegAnalysisAsync(userId, opponentName, cancellationToken);
+            
+            _logger.LogInformation("Detailed leg analysis retrieved: TotalLegs={TotalLegs}, CheckoutRate={CheckoutRate}", 
+                analysis.TotalLegs, analysis.CheckoutSuccessRate);
+            
+            if (analysis.TotalLegs == 0)
+            {
+                var message = $"No detailed leg data found against {opponentName}. They may not exist in the database or you haven't played them yet.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create a comprehensive response with detailed insights
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                opponent_name = analysis.OpponentName,
+                total_legs = analysis.TotalLegs,
+                checkout_success_rate = Math.Round(analysis.CheckoutSuccessRate, 1),
+                average_turns_per_leg = Math.Round(analysis.AverageTurnsPerLeg, 1),
+                highest_finish = analysis.HighestFinish,
+                successful_checkouts = analysis.SuccessfulCheckouts,
+                missed_checkouts = analysis.MissedCheckouts,
+                common_scores_left = analysis.CommonScoresLeft,
+                scoring_patterns = analysis.ScoringPatterns,
+                strengths = analysis.Strengths,
+                weak_areas = analysis.WeakAreas,
+                specific_insights = analysis.SpecificInsights,
+                summary = $"Detailed analysis vs {analysis.OpponentName}: {analysis.TotalLegs} legs, {analysis.CheckoutSuccessRate:F1}% checkout rate, avg {analysis.AverageTurnsPerLeg:F1} turns per leg",
+                human_readable = $"Analyzed {analysis.TotalLegs} legs against {analysis.OpponentName} with specific throw-by-throw insights"
+            });
+            
+            _logger.LogInformation("Detailed leg analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteDetailedLegAnalysisFunction for user {UserId}", userId);
+            return $"Error retrieving detailed leg analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteFirstNineAnalysisFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing first nine analysis with args: {Args}", argumentsJson);
+            
+            string? opponentName = null;
+            
+            // Parse arguments if provided
+            if (!string.IsNullOrEmpty(argumentsJson) && argumentsJson.Trim() != "{}")
+            {
+                using var argsDoc = JsonDocument.Parse(argumentsJson);
+                if (argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentNameElement))
+                {
+                    opponentName = opponentNameElement.GetString();
+                }
+            }
+
+            _logger.LogInformation("Getting first nine analysis for user {UserId} vs {OpponentName}", userId, opponentName ?? "All Opponents");
+            var analysis = await _performanceService.GetFirstNineAnalysisAsync(userId, opponentName, cancellationToken);
+            
+            _logger.LogInformation("First nine analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}, OpponentAverage={OpponentAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerFirstNineAverage, analysis.OpponentFirstNineAverage);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = string.IsNullOrEmpty(opponentName) 
+                    ? "No leg data found for first 9 analysis. You may not have any completed legs in the database."
+                    : $"No leg data found against {opponentName} for first 9 analysis. They may not exist in the database or you haven't played them yet.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response with first 9 analysis
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                opponent_name = analysis.OpponentName,
+                is_opponent_comparison = analysis.IsOpponentComparison,
+                player_first_nine_average = Math.Round(analysis.PlayerFirstNineAverage, 1),
+                opponent_first_nine_average = analysis.IsOpponentComparison ? Math.Round(analysis.OpponentFirstNineAverage, 1) : (double?)null,
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                winner = analysis.IsOpponentComparison ? analysis.Winner : null,
+                difference = analysis.IsOpponentComparison ? Math.Round(analysis.Difference, 1) : (double?)null,
+                player_first_nine_averages = analysis.PlayerFirstNineAverages,
+                opponent_first_nine_averages = analysis.IsOpponentComparison ? analysis.OpponentFirstNineAverages : null,
+                insights = analysis.Insights,
+                summary = analysis.IsOpponentComparison 
+                    ? $"First 9 vs {analysis.OpponentName}: You average {analysis.PlayerFirstNineAverage:F1}, they average {analysis.OpponentFirstNineAverage:F1} (difference: {(analysis.Difference > 0 ? "+" : "")}{analysis.Difference:F1})"
+                    : $"Overall first 9 average: {analysis.PlayerFirstNineAverage:F1} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = analysis.IsOpponentComparison 
+                    ? $"First 9 darts comparison vs {analysis.OpponentName}: Your {analysis.PlayerFirstNineAverage:F1} vs their {analysis.OpponentFirstNineAverage:F1}"
+                    : $"Your overall first 9 average: {analysis.PlayerFirstNineAverage:F1} points"
+            });
+            
+            _logger.LogInformation("First nine analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteFirstNineAnalysisFunction for user {UserId}", userId);
+            return $"Error retrieving first nine analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteScoreDownToValueFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing score down to value analysis with args: {Args}", argumentsJson);
+            
+            int targetValue = 170; // Default to 170 (double-out range)
+            string? opponentName = null;
+            
+            // Parse arguments
+            if (!string.IsNullOrEmpty(argumentsJson) && argumentsJson.Trim() != "{}")
+            {
+                using var argsDoc = JsonDocument.Parse(argumentsJson);
+                
+                if (argsDoc.RootElement.TryGetProperty("target_value", out var targetElement))
+                {
+                    targetValue = targetElement.GetInt32();
+                }
+                
+                if (argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentElement))
+                {
+                    opponentName = opponentElement.GetString();
+                }
+            }
+
+            _logger.LogInformation("Getting score down to value analysis for user {UserId} vs {OpponentName} target: {TargetValue}", userId, opponentName ?? "All Opponents", targetValue);
+            var analysis = await _performanceService.GetScoreDownToValueAnalysisAsync(userId, targetValue, opponentName, cancellationToken);
+            
+            _logger.LogInformation("Score down to value analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}, OpponentAverage={OpponentAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageDarts, analysis.OpponentAverageDarts);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = string.IsNullOrEmpty(opponentName) 
+                    ? $"No leg data found for score down to {targetValue} analysis. You may not have any completed legs in the database."
+                    : $"No leg data found against {opponentName} for score down to {targetValue} analysis. They may not exist in the database or you haven't played them yet.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response with score down to value analysis
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                target_value = analysis.TargetValue,
+                opponent_name = analysis.OpponentName,
+                is_opponent_comparison = analysis.IsOpponentComparison,
+                player_average_darts = Math.Round(analysis.PlayerAverageDarts, 1),
+                opponent_average_darts = analysis.IsOpponentComparison ? Math.Round(analysis.OpponentAverageDarts, 1) : (double?)null,
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                winner = analysis.IsOpponentComparison ? analysis.Winner : null,
+                difference = analysis.IsOpponentComparison ? Math.Round(analysis.Difference, 1) : (double?)null,
+                player_fastest_darts = analysis.PlayerFastestDarts,
+                player_slowest_darts = analysis.PlayerSlowestDarts,
+                opponent_fastest_darts = analysis.IsOpponentComparison ? analysis.OpponentFastestDarts : (double?)null,
+                opponent_slowest_darts = analysis.IsOpponentComparison ? analysis.OpponentSlowestDarts : (double?)null,
+                insights = analysis.Insights,
+                summary = analysis.IsOpponentComparison 
+                    ? $"Darts to {targetValue}: You average {analysis.PlayerAverageDarts:F1}, they average {analysis.OpponentAverageDarts:F1} (difference: {(analysis.Difference > 0 ? "+" : "")}{analysis.Difference:F1})"
+                    : $"Average darts to reach {targetValue}: {analysis.PlayerAverageDarts:F1} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = analysis.IsOpponentComparison 
+                    ? $"Darts to reach {targetValue} vs {analysis.OpponentName}: Your {analysis.PlayerAverageDarts:F1} vs their {analysis.OpponentAverageDarts:F1}"
+                    : $"Your average darts to reach {targetValue}: {analysis.PlayerAverageDarts:F1}"
+            });
+            
+            _logger.LogInformation("Score down to value analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteScoreDownToValueFunction for user {UserId}", userId);
+            return $"Error retrieving score down to value analysis: {ex.Message}";
+        }
+    }
+
     private object[] GetAvailableTools()
     {
         return new object[]
@@ -466,6 +673,77 @@ public class CoachingService : ICoachingService
                         required = new[] { "search_term" }
                     }
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_detailed_leg_analysis",
+                    description = "Get detailed throw-by-throw analysis against a specific opponent, including checkout patterns, common scores left, missed opportunities, scoring habits, and specific improvement recommendations based on actual leg detail data. Use this for deep insights beyond basic statistics.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            opponent_name = new
+                            {
+                                type = "string",
+                                description = "The exact name of the opponent to analyze (e.g., 'Chris Eldert', 'Jon Strang')"
+                            }
+                        },
+                        required = new[] { "opponent_name" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_first_nine_analysis",
+                    description = "Get first 9 darts (first 3 turns) average analysis from actual leg detail data. This is a key darts metric measuring opening performance and consistency. Use this for 'first 9' questions.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            opponent_name = new
+                            {
+                                type = "string",
+                                description = "Optional: The exact name of the opponent to compare first 9 averages against. If not provided, returns overall first 9 analysis."
+                            }
+                        },
+                        required = new string[] { }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_score_down_to_value_analysis",
+                    description = "Analyze how many darts it takes to get down to a specific score value from 501. Common targets: 170 (double-out range), 40 (checkout range), 100, etc. Use this for questions like 'how many darts to get to 170?' or 'how fast do I get to 220 points?'",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            target_value = new
+                            {
+                                type = "integer",
+                                description = "The score value to analyze darts required to reach (e.g., 170, 40, 220, 100)"
+                            },
+                            opponent_name = new
+                            {
+                                type = "string",
+                                description = "Optional: The exact name of the opponent to compare pace against. If not provided, returns overall analysis."
+                            }
+                        },
+                        required = new[] { "target_value" }
+                    }
+                }
             }
         };
     }
@@ -478,7 +756,7 @@ Be direct and specific. No lengthy explanations unless specifically requested.
 Your expertise: technique, mental game, finishing, practice routines, tactics.
 
 CRITICAL FUNCTION CALLING RULES:
-1. NEVER respond with promises like 'Let me get...', 'Retrieving...', 'I'll look up...', etc.
+1. NEVER respond with promises like ""Let me get..."", ""Retrieving..."", ""I'll look up..."", etc.
 2. If you need data, call the appropriate functions IMMEDIATELY
 3. When a user asks about opponents with partial names, you must complete BOTH steps:
    - First: call find_opponent() to get the exact name
@@ -487,14 +765,33 @@ CRITICAL FUNCTION CALLING RULES:
 5. Answer the user's original question directly using the retrieved data
 
 WORKFLOW EXAMPLES:
-- User: 'What is my leg count against Chris?'
-  → Step 1: Call find_opponent('Chris') → Get 'Chris Eldert'
-  → Step 2: Call get_head_to_head_stats('Chris Eldert') → Get leg data  
+- User: ""What is my leg count against Chris?""
+  → Step 1: Call find_opponent(""Chris"") → Get ""Chris Eldert""
+  → Step 2: Call get_head_to_head_stats(""Chris Eldert"") → Get leg data  
   → Step 3: Present the actual leg count numbers to the user
 
-- User: 'Show me my performance'
+- User: ""What should I work on against Jon?"" or ""Why do I struggle against Chris?""
+  → Step 1: Call find_opponent if needed
+  → Step 2: Call get_detailed_leg_analysis(""Jon Strang"") → Get throw-by-throw insights
+  → Step 3: Present specific recommendations based on actual checkout patterns and scoring data
+
+- User: ""How many darts to get to 170?"" or ""How fast do I get down to 220 points?""
+  → Step 1: Call get_score_down_to_value_analysis(target_value: 170) → Get pace analysis
+  → Step 2: Present actual dart count data and insights
+
+- User: ""Who gets down to 170 faster out of me and Jon?""
+  → Step 1: Call find_opponent if needed → Get ""Jon Strang""
+  → Step 2: Call get_score_down_to_value_analysis(target_value: 170, opponent_name: ""Jon Strang"")
+  → Step 3: Present comparison data
+
+- User: ""Show me my performance""
   → Step 1: Call get_player_performance() → Get performance data
   → Step 2: Present the performance statistics to the user
+
+IMPORTANT: 
+- Use get_detailed_leg_analysis for improvement areas, specific weaknesses, checkout problems
+- Use get_first_nine_analysis for ""first 9"" questions (shows average score per 3-dart turn, not total)
+- Use get_score_down_to_value_analysis for pace questions (e.g., ""how many darts to get to 170?"")
 
 DO NOT NARRATE YOUR ACTIONS - JUST EXECUTE THE FUNCTIONS AND PRESENT RESULTS.";
 
