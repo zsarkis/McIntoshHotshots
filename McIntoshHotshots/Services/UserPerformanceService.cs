@@ -961,4 +961,142 @@ public class UserPerformanceService : IUserPerformanceService
             _ => $"{targetValue} points"
         };
     }
+
+    public async Task<FirstNineAnalysis> GetAnyPlayerFirstNineAnalysisAsync(string playerName, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Find player by name
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new FirstNineAnalysis { OpponentName = playerName };
+            }
+
+            var analysis = new FirstNineAnalysis
+            {
+                OpponentName = playerName,
+                IsOpponentComparison = false
+            };
+
+            // Get all leg details for this player
+            var allPlayerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+
+            // Calculate overall first 9 analysis
+            analysis.PlayerFirstNineAverages = CalculateFirstNineAverages(allPlayerLegDetails);
+            analysis.PlayerFirstNineAverage = analysis.PlayerFirstNineAverages.Any() ? 
+                analysis.PlayerFirstNineAverages.Average() : 0;
+            analysis.TotalLegsAnalyzed = analysis.PlayerFirstNineAverages.Count;
+            
+            GenerateOverallFirstNineInsights(analysis);
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving first nine analysis for player: {PlayerName}", playerName);
+            return new FirstNineAnalysis { OpponentName = playerName };
+        }
+    }
+
+    public async Task<ScoreDownToValueAnalysis> GetAnyPlayerScoreDownToValueAnalysisAsync(string playerName, int targetValue, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Find player by name
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new ScoreDownToValueAnalysis { OpponentName = playerName, TargetValue = targetValue };
+            }
+
+            var analysis = new ScoreDownToValueAnalysis
+            {
+                TargetValue = targetValue,
+                OpponentName = playerName,
+                IsOpponentComparison = false
+            };
+
+            // Get all leg details for this player
+            var allPlayerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+
+            // Calculate score down to value analysis
+            analysis.PlayerDartCounts = CalculateDartsToReachValue(allPlayerLegDetails, targetValue);
+            analysis.PlayerAverageDarts = analysis.PlayerDartCounts.Any() ? 
+                analysis.PlayerDartCounts.Average() : 0;
+            analysis.TotalLegsAnalyzed = analysis.PlayerDartCounts.Count;
+            
+            if (analysis.PlayerDartCounts.Any())
+            {
+                analysis.PlayerFastestDarts = analysis.PlayerDartCounts.Min();
+                analysis.PlayerSlowestDarts = analysis.PlayerDartCounts.Max();
+            }
+            
+            GenerateOverallScoreDownToValueInsights(analysis);
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving score down to value analysis for player: {PlayerName} target: {TargetValue}", playerName, targetValue);
+            return new ScoreDownToValueAnalysis { OpponentName = playerName, TargetValue = targetValue };
+        }
+    }
+
+    public async Task<UserPerformanceData> GetAnyPlayerPerformanceDataAsync(string playerName, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Find player by name
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new UserPerformanceData();
+            }
+
+            // Get all matches for this player
+            var matches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+            
+            // Get leg details for performance calculation
+            var legDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+
+            // Calculate performance stats
+            var stats = CalculatePerformanceStats(player, matches, legDetails);
+
+            return new UserPerformanceData
+            {
+                Player = player,
+                Stats = stats,
+                RecentLegDetails = legDetails.TakeLast(10).ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving performance data for player: {PlayerName}", playerName);
+            return new UserPerformanceData();
+        }
+    }
+
+    public async Task<List<string>> GetAllPlayerNamesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            return allPlayers.Select(p => p.Name).OrderBy(name => name).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving all player names");
+            return new List<string>();
+        }
+    }
 }  

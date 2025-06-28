@@ -262,6 +262,18 @@ public class CoachingService : ICoachingService
                 case "get_score_down_to_value_analysis":
                     return await ExecuteScoreDownToValueFunction(argumentsJson, userId, cancellationToken);
                 
+                case "get_any_player_first_nine_analysis":
+                    return await ExecuteAnyPlayerFirstNineAnalysisFunction(argumentsJson, cancellationToken);
+                
+                case "get_any_player_score_down_to_value_analysis":
+                    return await ExecuteAnyPlayerScoreDownToValueFunction(argumentsJson, cancellationToken);
+                
+                case "get_any_player_performance":
+                    return await ExecuteAnyPlayerPerformanceFunction(argumentsJson, cancellationToken);
+                
+                case "get_all_player_names":
+                    return await ExecuteGetAllPlayerNamesFunction(cancellationToken);
+                
                 default:
                     _logger.LogWarning("Unknown function called: {FunctionName}", functionName);
                     return $"Unknown function: {functionName}";
@@ -608,6 +620,199 @@ public class CoachingService : ICoachingService
         }
     }
 
+    private async Task<string> ExecuteAnyPlayerFirstNineAnalysisFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player first nine analysis with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player first nine analysis request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting first nine analysis for player: {PlayerName}", playerName);
+            var analysis = await _performanceService.GetAnyPlayerFirstNineAnalysisAsync(playerName, cancellationToken);
+            
+            _logger.LogInformation("Any player first nine analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerFirstNineAverage);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = $"No leg data found for {playerName} for first 9 analysis. They may not exist in the database or have no completed legs.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = playerName,
+                first_nine_average = Math.Round(analysis.PlayerFirstNineAverage, 1),
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                insights = analysis.Insights,
+                summary = $"{playerName}'s overall first 9 average: {analysis.PlayerFirstNineAverage:F1} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = $"{playerName} averages {analysis.PlayerFirstNineAverage:F1} per turn in their first 9 darts"
+            });
+            
+            _logger.LogInformation("Any player first nine analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerFirstNineAnalysisFunction");
+            return $"Error retrieving first nine analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAnyPlayerScoreDownToValueFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player score down to value analysis with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+            var targetValue = argsDoc.RootElement.GetProperty("target_value").GetInt32();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player score down to value analysis request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting score down to value analysis for player: {PlayerName} target: {TargetValue}", playerName, targetValue);
+            var analysis = await _performanceService.GetAnyPlayerScoreDownToValueAnalysisAsync(playerName, targetValue, cancellationToken);
+            
+            _logger.LogInformation("Any player score down to value analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageDarts);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = $"No leg data found for {playerName} for score down to {targetValue} analysis. They may not exist in the database or have no completed legs.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = playerName,
+                target_value = analysis.TargetValue,
+                average_darts = Math.Round(analysis.PlayerAverageDarts, 1),
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                fastest_darts = analysis.PlayerFastestDarts,
+                slowest_darts = analysis.PlayerSlowestDarts,
+                insights = analysis.Insights,
+                summary = $"{playerName} averages {analysis.PlayerAverageDarts:F1} darts to reach {targetValue} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = $"{playerName} takes an average of {analysis.PlayerAverageDarts:F1} darts to get down to {targetValue}"
+            });
+            
+            _logger.LogInformation("Any player score down to value analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerScoreDownToValueFunction");
+            return $"Error retrieving score down to value analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAnyPlayerPerformanceFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player performance with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player performance request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting performance data for player: {PlayerName}", playerName);
+            var performanceData = await _performanceService.GetAnyPlayerPerformanceDataAsync(playerName, cancellationToken);
+            
+            if (performanceData.Player == null)
+            {
+                var message = $"No player found with name: {playerName}";
+                _logger.LogInformation("No player found: {Message}", message);
+                return message;
+            }
+
+            var stats = performanceData.Stats;
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = performanceData.Player.Name,
+                elo_rating = performanceData.Player.EloNumber,
+                total_matches = stats.TotalMatches,
+                matches_won = stats.MatchesWon,
+                unique_opponents = stats.UniqueOpponents,
+                win_percentage = Math.Round(stats.WinPercentage, 1),
+                average_score = Math.Round(stats.AverageScore, 1),
+                checkout_percentage = Math.Round(stats.CheckoutPercentage, 1),
+                highest_finish = stats.HighestFinish,
+                average_turns_per_leg = Math.Round(stats.AverageTurnsPerLeg, 1),
+                common_weak_scores = stats.CommonWeakScores,
+                performance_trends = stats.PerformanceTrends,
+                summary = $"{performanceData.Player.Name}: {stats.WinPercentage:F1}% win rate, {stats.AverageScore:F1} average, {stats.TotalMatches} matches",
+                human_readable = $"{performanceData.Player.Name} has played {stats.TotalMatches} matches with a {stats.WinPercentage:F1}% win rate and {stats.AverageScore:F1} scoring average"
+            });
+            
+            _logger.LogInformation("Any player performance completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerPerformanceFunction");
+            return $"Error retrieving player performance: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteGetAllPlayerNamesFunction(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing get all player names");
+            
+            var playerNames = await _performanceService.GetAllPlayerNamesAsync(cancellationToken);
+            
+            _logger.LogInformation("Retrieved {Count} player names", playerNames.Count);
+            
+            if (!playerNames.Any())
+            {
+                return "No players found in the system.";
+            }
+
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                total_players = playerNames.Count,
+                player_names = playerNames,
+                summary = $"Found {playerNames.Count} players in the system",
+                human_readable = $"Players in the system: {string.Join(", ", playerNames)}"
+            });
+            
+            _logger.LogInformation("Get all player names completed successfully with {Count} players", playerNames.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteGetAllPlayerNamesFunction");
+            return $"Error retrieving player names: {ex.Message}";
+        }
+    }
+
     private object[] GetAvailableTools()
     {
         return new object[]
@@ -744,6 +949,86 @@ public class CoachingService : ICoachingService
                         required = new[] { "target_value" }
                     }
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_any_player_first_nine_analysis",
+                    description = "Get first 9 darts average analysis for ANY player in the system (not just opponents you've faced). Use this when users ask about any player's first 9 performance.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            player_name = new
+                            {
+                                type = "string",
+                                description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            }
+                        },
+                        required = new[] { "player_name" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_any_player_score_down_to_value_analysis",
+                    description = "Analyze how many darts it takes for ANY player in the system to get down to a specific score value. Use this when users ask about any player's pace (not just opponents you've faced).",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            player_name = new
+                            {
+                                type = "string",
+                                description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            },
+                            target_value = new
+                            {
+                                type = "integer",
+                                description = "The score value to analyze darts required to reach (e.g., 170, 40, 220, 100)"
+                            }
+                        },
+                        required = new[] { "player_name", "target_value" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_any_player_performance",
+                    description = "Get overall performance statistics for ANY player in the system (not just opponents you've faced). Returns win rates, averages, ELO, etc.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            player_name = new
+                            {
+                                type = "string",
+                                description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            }
+                        },
+                        required = new[] { "player_name" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_all_player_names",
+                    description = "Get a list of all players in the system. Use this when users want to know what players are available to query, or when they ask about 'all players' or want to see who's in the database."
+                }
             }
         };
     }
@@ -792,6 +1077,14 @@ IMPORTANT:
 - Use get_detailed_leg_analysis for improvement areas, specific weaknesses, checkout problems
 - Use get_first_nine_analysis for ""first 9"" questions (shows average score per 3-dart turn, not total)
 - Use get_score_down_to_value_analysis for pace questions (e.g., ""how many darts to get to 170?"")
+- Use get_any_player_* functions when asked about ANY player (not just opponents you've faced)
+- Use get_all_player_names when users want to know what players are available
+
+EXAMPLES OF ANY PLAYER QUERIES:
+- ""What is JR's overall first 9?"" → Use get_any_player_first_nine_analysis(""JR Edwards"")
+- ""How fast does Chris get to 170?"" → Use get_any_player_score_down_to_value_analysis(""Chris Eldert"", 170)
+- ""What are all the players?"" → Use get_all_player_names()
+- ""Show me Jon's stats"" → Use get_any_player_performance(""Jon Strang"")
 
 DO NOT NARRATE YOUR ACTIONS - JUST EXECUTE THE FUNCTIONS AND PRESENT RESULTS.";
 

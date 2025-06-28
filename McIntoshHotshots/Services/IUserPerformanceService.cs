@@ -13,6 +13,7 @@ public interface IUserPerformanceService
     Task<FirstNineAnalysis> GetAnyPlayerFirstNineAnalysisAsync(string playerName, CancellationToken cancellationToken = default);
     Task<ScoreDownToValueAnalysis> GetAnyPlayerScoreDownToValueAnalysisAsync(string playerName, int targetValue, CancellationToken cancellationToken = default);
     Task<UserPerformanceData> GetAnyPlayerPerformanceDataAsync(string playerName, CancellationToken cancellationToken = default);
+    Task<List<string>> GetAllPlayerNamesAsync(CancellationToken cancellationToken = default);
 }
 
 public class DetailedLegAnalysis
