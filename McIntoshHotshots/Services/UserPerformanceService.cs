@@ -73,6 +73,11 @@ public class UserPerformanceService : IUserPerformanceService
             (m.AwayPlayerId == player.Id && m.AwayLegsWon > m.HomeLegsWon));
         stats.WinPercentage = stats.TotalMatches > 0 ? (double)stats.MatchesWon / stats.TotalMatches * 100 : 0;
 
+        // Calculate unique opponents
+        var opponentIds = matches.Select(m => 
+            m.HomePlayerId == player.Id ? m.AwayPlayerId : m.HomePlayerId).Distinct().ToList();
+        stats.UniqueOpponents = opponentIds.Count;
+
         // Calculate average score from matches
         var playerAverages = matches.Select(m => 
             m.HomePlayerId == player.Id ? m.HomeSetAverage : m.AwaySetAverage).ToList();
@@ -162,5 +167,170 @@ public class UserPerformanceService : IUserPerformanceService
             trends.Add("Finishing game needs significant improvement");
 
         return trends;
+    }
+
+    public async Task<HeadToHeadData> GetHeadToHeadDataAsync(string userId, string opponentName, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var player = await _playerRepo.GetPlayerByUserIdAsync(userId);
+            if (player == null)
+            {
+                return new HeadToHeadData { OpponentName = opponentName };
+            }
+
+            // Find opponent by name (case-insensitive)
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var opponent = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+            if (opponent == null)
+            {
+                return new HeadToHeadData { OpponentName = opponentName };
+            }
+
+            // Get all matches between these two players
+            var playerMatches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+            var headToHeadMatches = playerMatches.Where(m => 
+                (m.HomePlayerId == player.Id && m.AwayPlayerId == opponent.Id) ||
+                (m.HomePlayerId == opponent.Id && m.AwayPlayerId == player.Id)).ToList();
+
+            if (!headToHeadMatches.Any())
+            {
+                return new HeadToHeadData { OpponentName = opponent.Name };
+            }
+
+            return CalculateHeadToHeadStats(player, opponent, headToHeadMatches);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving head-to-head data for user: {UserId} vs {OpponentName}", userId, opponentName);
+            return new HeadToHeadData { OpponentName = opponentName };
+        }
+    }
+
+    private HeadToHeadData CalculateHeadToHeadStats(PlayerModel player, PlayerModel opponent, List<MatchSummaryModel> matches)
+    {
+        var data = new HeadToHeadData
+        {
+            OpponentName = opponent.Name,
+            TotalMatches = matches.Count
+        };
+
+        var playerWins = 0;
+        var playerLegsWon = 0;
+        var playerLegsLost = 0;
+        var playerScores = new List<double>();
+        var opponentScores = new List<double>();
+
+        foreach (var match in matches)
+        {
+            bool playerIsHome = match.HomePlayerId == player.Id;
+            
+            if (playerIsHome)
+            {
+                playerLegsWon += match.HomeLegsWon;
+                playerLegsLost += match.AwayLegsWon;
+                playerScores.Add(match.HomeSetAverage);
+                opponentScores.Add(match.AwaySetAverage);
+                
+                if (match.HomeLegsWon > match.AwayLegsWon)
+                    playerWins++;
+            }
+            else
+            {
+                playerLegsWon += match.AwayLegsWon;
+                playerLegsLost += match.HomeLegsWon;
+                playerScores.Add(match.AwaySetAverage);
+                opponentScores.Add(match.HomeSetAverage);
+                
+                if (match.AwayLegsWon > match.HomeLegsWon)
+                    playerWins++;
+            }
+        }
+
+        data.MatchesWon = playerWins;
+        data.MatchesLost = data.TotalMatches - playerWins;
+        data.WinPercentage = data.TotalMatches > 0 ? (double)playerWins / data.TotalMatches * 100 : 0;
+        
+        data.LegsWon = playerLegsWon;
+        data.LegsLost = playerLegsLost;
+        data.LegWinPercentage = (playerLegsWon + playerLegsLost) > 0 ? 
+            (double)playerLegsWon / (playerLegsWon + playerLegsLost) * 100 : 0;
+
+        data.AverageScoreVsOpponent = playerScores.Any() ? playerScores.Average() : 0;
+        data.OpponentAverageScore = opponentScores.Any() ? opponentScores.Average() : 0;
+
+        // Last match result
+        var lastMatch = matches.OrderByDescending(m => m.Id).FirstOrDefault();
+        if (lastMatch != null)
+        {
+            bool playerWonLast = (lastMatch.HomePlayerId == player.Id && lastMatch.HomeLegsWon > lastMatch.AwayLegsWon) ||
+                                (lastMatch.AwayPlayerId == player.Id && lastMatch.AwayLegsWon > lastMatch.HomeLegsWon);
+            data.LastMatchResult = playerWonLast ? "Won" : "Lost";
+        }
+
+        // Performance trends vs this opponent
+        data.PerformanceTrends = GenerateHeadToHeadTrends(data);
+
+        return data;
+    }
+
+    private List<string> GenerateHeadToHeadTrends(HeadToHeadData data)
+    {
+        var trends = new List<string>();
+
+        if (data.WinPercentage >= 70)
+            trends.Add("Dominant matchup");
+        else if (data.WinPercentage >= 55)
+            trends.Add("Favorable matchup");
+        else if (data.WinPercentage >= 45)
+            trends.Add("Even matchup");
+        else
+            trends.Add("Challenging opponent");
+
+        if (data.AverageScoreVsOpponent > data.OpponentAverageScore)
+            trends.Add("Outscoring opponent on average");
+        else if (data.AverageScoreVsOpponent < data.OpponentAverageScore - 5)
+            trends.Add("Opponent has scoring advantage");
+
+        return trends;
+    }
+
+    public async Task<List<string>> GetOpponentListAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var player = await _playerRepo.GetPlayerByUserIdAsync(userId);
+            if (player == null)
+            {
+                return new List<string>();
+            }
+
+            // Get all matches for this player
+            var matches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+            
+            // Get unique opponent IDs
+            var opponentIds = matches.Select(m => 
+                m.HomePlayerId == player.Id ? m.AwayPlayerId : m.HomePlayerId).Distinct().ToList();
+
+            // Get opponent names
+            var opponentNames = new List<string>();
+            foreach (var opponentId in opponentIds)
+            {
+                var opponent = await _playerRepo.GetPlayerByIdAsync(opponentId);
+                if (opponent != null)
+                {
+                    opponentNames.Add(opponent.Name);
+                }
+            }
+
+            return opponentNames.OrderBy(name => name).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving opponent list for user: {UserId}", userId);
+            return new List<string>();
+        }
     }
 } 

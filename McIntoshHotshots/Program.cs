@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddRazorPages(); // Add Razor Pages services
+builder.Services.AddControllers(); // Add API controllers
 
 // Configure the database context
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
@@ -44,6 +45,7 @@ builder.Services.AddScoped<IEloCalculationService, EloCalculationService>();
 builder.Services.AddScoped<ILiveMatchService, LiveMatchService>();
 builder.Services.AddScoped<IUserPerformanceService, UserPerformanceService>();
 builder.Services.AddScoped<ICoachingService, CoachingService>();
+builder.Services.AddScoped<CoachingDebugService>();
 
 // Add Identity services
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
@@ -101,6 +103,9 @@ app.UseAuthorization();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Map API controllers
+app.MapControllers();
 
 // Map Razor Pages for Identity UI
 app.MapRazorPages();
