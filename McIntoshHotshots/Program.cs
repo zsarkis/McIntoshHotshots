@@ -42,6 +42,8 @@ builder.Services.AddScoped<ITournamentService, TournamentService>();
 builder.Services.AddScoped<IDartConnectReportParsingService, DartConnectReportParsingService>();
 builder.Services.AddScoped<IEloCalculationService, EloCalculationService>();
 builder.Services.AddScoped<ILiveMatchService, LiveMatchService>();
+builder.Services.AddScoped<IUserPerformanceService, UserPerformanceService>();
+builder.Services.AddScoped<ICoachingService, CoachingService>();
 
 // Add Identity services
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
