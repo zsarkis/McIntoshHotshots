@@ -1,0 +1,264 @@
+@page "/coaching"
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Text.Json
+@using System.Net.Http.Headers
+@using System.Net.Http
+@using System.Text
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
+@rendermode InteractiveServer
+
+<PageTitle>Coaching - McIntosh Hotshots</PageTitle>
+
+<div class="coaching-container">
+    <div class="coaching-header">
+        <h1 class="coaching-title">
+            <span class="bi bi-chat-dots-fill"></span>
+            AI Darts Coach
+        </h1>
+        <p class="coaching-subtitle">Get personalized coaching tips and strategies to improve your darts game</p>
+    </div>
+
+    <div class="chat-container">
+        <div class="messages-container" @ref="messagesContainer">
+            @if (messages.Count == 0)
+            {
+                <div class="welcome-message">
+                    <div class="welcome-card">
+                        <h3>Welcome to your AI Darts Coach! 🎯</h3>
+                        <p>I'm here to help you improve your darts game. You can ask me about:</p>
+                        <ul>
+                            <li>Throwing techniques and stance</li>
+                            <li>Mental game and focus strategies</li>
+                            <li>Finishing combinations and checkout advice</li>
+                            <li>Practice routines and drills</li>
+                            <li>Tournament preparation</li>
+                            <li>Equipment recommendations</li>
+                        </ul>
+                        <p>What would you like to work on today?</p>
+                    </div>
+                </div>
+            }
+            
+            @foreach (var message in messages)
+            {
+                <div class="message @(message.IsUser ? "user-message" : "ai-message")">
+                    <div class="message-avatar">
+                        @if (message.IsUser)
+                        {
+                            <span class="bi bi-person-circle"></span>
+                        }
+                        else
+                        {
+                            <span class="bi bi-bullseye"></span>
+                        }
+                    </div>
+                    <div class="message-content">
+                        <div class="message-text">
+                            @((MarkupString)FormatMessage(message.Content))
+                        </div>
+                        <div class="message-time">
+                            @message.Timestamp.ToString("HH:mm")
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            @if (isThinking)
+            {
+                <div class="message ai-message">
+                    <div class="message-avatar">
+                        <span class="bi bi-bullseye"></span>
+                    </div>
+                    <div class="message-content">
+                        <div class="typing-indicator">
+                            <div class="typing-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                            <span class="typing-text">AI Coach is thinking...</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <div class="input-container">
+            <EditForm Model="currentMessage" OnValidSubmit="SendMessage" class="message-form">
+                <div class="input-group">
+                    <InputTextArea @bind-Value="currentMessage" 
+                                   placeholder="Ask your darts coach anything..." 
+                                   class="message-input"
+                                   @onkeydown="HandleKeyDown"
+                                   disabled="@isThinking" />
+                    <button type="submit" class="send-button" disabled="@(isThinking || string.IsNullOrWhiteSpace(currentMessage))">
+                        <span class="bi bi-send-fill"></span>
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+
+
+@code {
+    private List<ChatMessage> messages = new();
+    private string currentMessage = "";
+    private bool isThinking = false;
+    private ElementReference messagesContainer;
+
+    public class ChatMessage
+    {
+        public string Content { get; set; } = "";
+        public bool IsUser { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(currentMessage) || isThinking)
+            return;
+
+        var userMessage = currentMessage.Trim();
+        currentMessage = "";
+
+        // Add user message
+        messages.Add(new ChatMessage
+        {
+            Content = userMessage,
+            IsUser = true,
+            Timestamp = DateTime.Now
+        });
+
+        StateHasChanged();
+        await ScrollToBottom();
+
+        // Show thinking indicator
+        isThinking = true;
+        StateHasChanged();
+        await ScrollToBottom();
+
+        try
+        {
+            // Call OpenAI API
+            var aiResponse = await GetAIResponse(userMessage);
+            
+            // Add AI response
+            messages.Add(new ChatMessage
+            {
+                Content = aiResponse,
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+        }
+        catch (Exception ex)
+        {
+            messages.Add(new ChatMessage
+            {
+                Content = "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.",
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            isThinking = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task<string> GetAIResponse(string userMessage)
+    {
+        // Prepare OpenAI request
+        var apiKey = Configuration["OpenAI:ApiKey"];
+        var endpoint = Configuration["OpenAI:Endpoint"];
+        var model = Configuration["OpenAI:Model"] ?? "gpt-4o";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var payload = new
+        {
+            model,
+            input = userMessage
+        };
+
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await Http.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+
+        /*
+         * Responses API typical success payload (excerpt):
+         * {
+         *   "output_text": "Great! How can I help you today?",
+         *   ...
+         * }
+         * or legacy: "output" array -> first element -> content[0].text
+         */
+
+        if (doc.RootElement.TryGetProperty("output_text", out var outputTextProp))
+        {
+            return outputTextProp.GetString() ?? string.Empty;
+        }
+
+        // Fallback to output -> list -> content[0].text
+        if (doc.RootElement.TryGetProperty("output", out var outputArray) &&
+            outputArray.ValueKind == JsonValueKind.Array && outputArray.GetArrayLength() > 0)
+        {
+            var firstOutput = outputArray[0];
+            if (firstOutput.TryGetProperty("content", out var contentArray) &&
+                contentArray.ValueKind == JsonValueKind.Array && contentArray.GetArrayLength() > 0)
+            {
+                var firstContent = contentArray[0];
+                if (firstContent.TryGetProperty("text", out var textProp))
+                {
+                    return textProp.GetString() ?? string.Empty;
+                }
+            }
+        }
+
+        // If parsing fails, return generic error
+        return "Sorry, I couldn't understand the response from the coach.";
+    }
+
+    private string FormatMessage(string content)
+    {
+        // Simple formatting for demonstration
+        content = content.Replace("\n", "<br/>");
+        content = content.Replace("**", "<strong>").Replace("**", "</strong>");
+        content = content.Replace("• ", "• ");
+        return content;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendMessage();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        await Task.Delay(50); // Small delay to ensure content is rendered
+        await JSRuntime.InvokeVoidAsync("scrollToBottom", messagesContainer);
+    }
+}
+
+<script>
+    window.scrollToBottom = (element) => {
+        if (element) {
+            element.scrollTop = element.scrollHeight;
+        }
+    }
+</script>

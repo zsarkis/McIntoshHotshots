@@ -55,6 +55,9 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
 
+// Add HttpClient registration to the services container
+builder.Services.AddHttpClient();
+
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 var app = builder.Build();
