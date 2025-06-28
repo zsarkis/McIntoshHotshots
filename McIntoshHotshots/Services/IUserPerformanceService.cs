@@ -14,6 +14,8 @@ public interface IUserPerformanceService
     Task<ScoreDownToValueAnalysis> GetAnyPlayerScoreDownToValueAnalysisAsync(string playerName, int targetValue, CancellationToken cancellationToken = default);
     Task<UserPerformanceData> GetAnyPlayerPerformanceDataAsync(string playerName, CancellationToken cancellationToken = default);
     Task<List<string>> GetAllPlayerNamesAsync(CancellationToken cancellationToken = default);
+    Task<AverageScorePerTurnAnalysis> GetAverageScorePerTurnDownToValueAsync(string userId, int targetValue, string? opponentName = null, CancellationToken cancellationToken = default);
+    Task<AverageScorePerTurnAnalysis> GetAnyPlayerAverageScorePerTurnDownToValueAsync(string playerName, int targetValue, CancellationToken cancellationToken = default);
 }
 
 public class DetailedLegAnalysis
@@ -64,6 +66,25 @@ public class ScoreDownToValueAnalysis
     public double PlayerSlowestDarts { get; set; }
     public double OpponentFastestDarts { get; set; }
     public double OpponentSlowestDarts { get; set; }
+}
+
+public class AverageScorePerTurnAnalysis
+{
+    public string? OpponentName { get; set; }
+    public int TargetValue { get; set; }
+    public double PlayerAverageScorePerTurn { get; set; }
+    public double OpponentAverageScorePerTurn { get; set; }
+    public int TotalLegsAnalyzed { get; set; }
+    public List<double> PlayerScorePerTurnAverages { get; set; } = new(); // Average score per turn for each leg
+    public List<double> OpponentScorePerTurnAverages { get; set; } = new(); // Average score per turn for each leg
+    public string Winner { get; set; } = "";
+    public double Difference { get; set; }
+    public List<string> Insights { get; set; } = new();
+    public bool IsOpponentComparison { get; set; }
+    public double PlayerBestLegAverage { get; set; }
+    public double PlayerWorstLegAverage { get; set; }
+    public double OpponentBestLegAverage { get; set; }
+    public double OpponentWorstLegAverage { get; set; }
 }
 
 public class UserPerformanceData

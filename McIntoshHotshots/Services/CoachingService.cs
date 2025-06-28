@@ -274,6 +274,12 @@ public class CoachingService : ICoachingService
                 case "get_all_player_names":
                     return await ExecuteGetAllPlayerNamesFunction(cancellationToken);
                 
+                case "get_average_score_per_turn_down_to_value":
+                    return await ExecuteAverageScorePerTurnDownToValueFunction(argumentsJson, userId, cancellationToken);
+                
+                case "get_any_player_average_score_per_turn_down_to_value":
+                    return await ExecuteAnyPlayerAverageScorePerTurnDownToValueFunction(argumentsJson, cancellationToken);
+                
                 default:
                     _logger.LogWarning("Unknown function called: {FunctionName}", functionName);
                     return $"Unknown function: {functionName}";
@@ -813,6 +819,135 @@ public class CoachingService : ICoachingService
         }
     }
 
+    private async Task<string> ExecuteAverageScorePerTurnDownToValueFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing average score per turn down to value with args: {Args}", argumentsJson);
+            
+            int targetValue = 40; // Default to 40 (checkout range)
+            string? opponentName = null;
+            
+            // Parse arguments
+            if (!string.IsNullOrEmpty(argumentsJson) && argumentsJson.Trim() != "{}")
+            {
+                using var argsDoc = JsonDocument.Parse(argumentsJson);
+                
+                if (argsDoc.RootElement.TryGetProperty("target_value", out var targetElement))
+                {
+                    targetValue = targetElement.GetInt32();
+                }
+                
+                if (argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentElement))
+                {
+                    opponentName = opponentElement.GetString();
+                }
+            }
+
+            _logger.LogInformation("Getting average score per turn analysis for user {UserId} vs {OpponentName} target: {TargetValue}", userId, opponentName ?? "All Opponents", targetValue);
+            var analysis = await _performanceService.GetAverageScorePerTurnDownToValueAsync(userId, targetValue, opponentName, cancellationToken);
+            
+            _logger.LogInformation("Average score per turn analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}, OpponentAverage={OpponentAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageScorePerTurn, analysis.OpponentAverageScorePerTurn);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = string.IsNullOrEmpty(opponentName) 
+                    ? $"No leg data found for average score per turn to {targetValue} analysis. You may not have any completed legs in the database."
+                    : $"No leg data found against {opponentName} for average score per turn to {targetValue} analysis. They may not exist in the database or you haven't played them yet.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                target_value = analysis.TargetValue,
+                opponent_name = analysis.OpponentName,
+                is_opponent_comparison = analysis.IsOpponentComparison,
+                player_average_score_per_turn = Math.Round(analysis.PlayerAverageScorePerTurn, 1),
+                opponent_average_score_per_turn = analysis.IsOpponentComparison ? Math.Round(analysis.OpponentAverageScorePerTurn, 1) : (double?)null,
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                winner = analysis.IsOpponentComparison ? analysis.Winner : null,
+                difference = analysis.IsOpponentComparison ? Math.Round(analysis.Difference, 1) : (double?)null,
+                player_best_leg_average = analysis.PlayerBestLegAverage,
+                player_worst_leg_average = analysis.PlayerWorstLegAverage,
+                opponent_best_leg_average = analysis.IsOpponentComparison ? analysis.OpponentBestLegAverage : (double?)null,
+                opponent_worst_leg_average = analysis.IsOpponentComparison ? analysis.OpponentWorstLegAverage : (double?)null,
+                insights = analysis.Insights,
+                summary = analysis.IsOpponentComparison 
+                    ? $"Score per turn to {targetValue}: You average {analysis.PlayerAverageScorePerTurn:F1}, they average {analysis.OpponentAverageScorePerTurn:F1} (difference: {(analysis.Difference > 0 ? "+" : "")}{analysis.Difference:F1})"
+                    : $"Average score per turn to reach {targetValue}: {analysis.PlayerAverageScorePerTurn:F1} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = analysis.IsOpponentComparison 
+                    ? $"Score per turn to {targetValue} vs {analysis.OpponentName}: Your {analysis.PlayerAverageScorePerTurn:F1} vs their {analysis.OpponentAverageScorePerTurn:F1}"
+                    : $"Your average score per turn while scoring down to {targetValue}: {analysis.PlayerAverageScorePerTurn:F1} points"
+            });
+            
+            _logger.LogInformation("Average score per turn analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAverageScorePerTurnDownToValueFunction for user {UserId}", userId);
+            return $"Error retrieving average score per turn analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAnyPlayerAverageScorePerTurnDownToValueFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player average score per turn down to value with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+            var targetValue = argsDoc.RootElement.GetProperty("target_value").GetInt32();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player average score per turn analysis request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting average score per turn analysis for player: {PlayerName} target: {TargetValue}", playerName, targetValue);
+            var analysis = await _performanceService.GetAnyPlayerAverageScorePerTurnDownToValueAsync(playerName, targetValue, cancellationToken);
+            
+            _logger.LogInformation("Any player average score per turn analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageScorePerTurn);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = $"No leg data found for {playerName} for average score per turn to {targetValue} analysis. They may not exist in the database or have no completed legs.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = playerName,
+                target_value = analysis.TargetValue,
+                average_score_per_turn = Math.Round(analysis.PlayerAverageScorePerTurn, 1),
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                best_leg_average = analysis.PlayerBestLegAverage,
+                worst_leg_average = analysis.PlayerWorstLegAverage,
+                insights = analysis.Insights,
+                summary = $"{playerName} averages {analysis.PlayerAverageScorePerTurn:F1} points per turn while scoring down to {targetValue} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = $"{playerName} averages {analysis.PlayerAverageScorePerTurn:F1} points per turn while scoring down to {targetValue}"
+            });
+            
+            _logger.LogInformation("Any player average score per turn analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerAverageScorePerTurnDownToValueFunction");
+            return $"Error retrieving average score per turn analysis: {ex.Message}";
+        }
+    }
+
     private object[] GetAvailableTools()
     {
         return new object[]
@@ -1029,6 +1164,60 @@ public class CoachingService : ICoachingService
                     name = "get_all_player_names",
                     description = "Get a list of all players in the system. Use this when users want to know what players are available to query, or when they ask about 'all players' or want to see who's in the database."
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_average_score_per_turn_down_to_value",
+                    description = "Get average SCORE per 3-dart turn while scoring down to a target value (excludes finishing attempts). This shows scoring efficiency during the scoring phase before throwing at doubles. Use this when users want scoring averages while getting to checkout range.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            target_value = new
+                            {
+                                type = "integer",
+                                description = "The score value to analyze scoring efficiency to (e.g., 40 for checkout range, 170 for double-out range)"
+                            },
+                            opponent_name = new
+                            {
+                                type = "string",
+                                description = "Optional: The exact name of the opponent to compare scoring efficiency against. If not provided, returns overall analysis."
+                            }
+                        },
+                        required = new[] { "target_value" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_any_player_average_score_per_turn_down_to_value",
+                    description = "Get average SCORE per 3-dart turn for ANY player while scoring down to a target value. Shows their scoring efficiency during the scoring phase before throwing at doubles.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            player_name = new
+                            {
+                                type = "string",
+                                description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            },
+                            target_value = new
+                            {
+                                type = "integer",
+                                description = "The score value to analyze scoring efficiency to (e.g., 40 for checkout range, 170 for double-out range)"
+                            }
+                        },
+                        required = new[] { "player_name", "target_value" }
+                    }
+                }
             }
         };
     }
@@ -1077,12 +1266,15 @@ IMPORTANT:
 - Use get_detailed_leg_analysis for improvement areas, specific weaknesses, checkout problems
 - Use get_first_nine_analysis for ""first 9"" questions (shows average score per 3-dart turn, not total)
 - Use get_score_down_to_value_analysis for pace questions (e.g., ""how many darts to get to 170?"")
+- Use get_average_score_per_turn_down_to_value for scoring efficiency questions (e.g., ""what's my average score per turn down to 40?"")
 - Use get_any_player_* functions when asked about ANY player (not just opponents you've faced)
 - Use get_all_player_names when users want to know what players are available
 
 EXAMPLES OF ANY PLAYER QUERIES:
 - ""What is JR's overall first 9?"" → Use get_any_player_first_nine_analysis(""JR Edwards"")
 - ""How fast does Chris get to 170?"" → Use get_any_player_score_down_to_value_analysis(""Chris Eldert"", 170)
+- ""What's my average score per turn down to 40?"" → Use get_average_score_per_turn_down_to_value(40)
+- ""What's Jon's scoring average while getting to checkout range?"" → Use get_any_player_average_score_per_turn_down_to_value(""Jon Strang"", 40)
 - ""What are all the players?"" → Use get_all_player_names()
 - ""Show me Jon's stats"" → Use get_any_player_performance(""Jon Strang"")
 

@@ -1099,4 +1099,297 @@ public class UserPerformanceService : IUserPerformanceService
             return new List<string>();
         }
     }
+
+    public async Task<AverageScorePerTurnAnalysis> GetAverageScorePerTurnDownToValueAsync(string userId, int targetValue, string? opponentName = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var player = await _playerRepo.GetPlayerByUserIdAsync(userId);
+            if (player == null)
+            {
+                return new AverageScorePerTurnAnalysis();
+            }
+
+            var analysis = new AverageScorePerTurnAnalysis
+            {
+                TargetValue = targetValue,
+                OpponentName = opponentName,
+                IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
+            };
+
+            // Get all leg details for the player
+            var allPlayerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+
+            if (analysis.IsOpponentComparison && !string.IsNullOrEmpty(opponentName))
+            {
+                // Find opponent and filter to head-to-head matches
+                var allPlayers = await _playerRepo.GetPlayersAsync();
+                var opponent = allPlayers.FirstOrDefault(p => 
+                    string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+                if (opponent == null)
+                {
+                    return analysis;
+                }
+
+                // Get matches between these players
+                var playerMatches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+                var headToHeadMatches = playerMatches.Where(m => 
+                    (m.HomePlayerId == player.Id && m.AwayPlayerId == opponent.Id) ||
+                    (m.HomePlayerId == opponent.Id && m.AwayPlayerId == player.Id)).ToList();
+
+                if (!headToHeadMatches.Any())
+                {
+                    return analysis;
+                }
+
+                // Filter player leg details to head-to-head matches
+                var playerH2HLegDetails = allPlayerLegDetails.Where(ld => 
+                    headToHeadMatches.Any(m => m.Id == ld.MatchId)).ToList();
+
+                // Get opponent's leg details for the same matches
+                var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
+                var opponentH2HLegDetails = opponentLegDetails.Where(ld => 
+                    headToHeadMatches.Any(m => m.Id == ld.MatchId)).ToList();
+
+                // Calculate average score per turn for both players
+                analysis.PlayerScorePerTurnAverages = CalculateAverageScorePerTurnToTarget(playerH2HLegDetails, targetValue);
+                analysis.OpponentScorePerTurnAverages = CalculateAverageScorePerTurnToTarget(opponentH2HLegDetails, targetValue);
+                
+                analysis.PlayerAverageScorePerTurn = analysis.PlayerScorePerTurnAverages.Any() ? 
+                    analysis.PlayerScorePerTurnAverages.Average() : 0;
+                analysis.OpponentAverageScorePerTurn = analysis.OpponentScorePerTurnAverages.Any() ? 
+                    analysis.OpponentScorePerTurnAverages.Average() : 0;
+
+                if (analysis.PlayerScorePerTurnAverages.Any())
+                {
+                    analysis.PlayerBestLegAverage = analysis.PlayerScorePerTurnAverages.Max();
+                    analysis.PlayerWorstLegAverage = analysis.PlayerScorePerTurnAverages.Min();
+                }
+
+                if (analysis.OpponentScorePerTurnAverages.Any())
+                {
+                    analysis.OpponentBestLegAverage = analysis.OpponentScorePerTurnAverages.Max();
+                    analysis.OpponentWorstLegAverage = analysis.OpponentScorePerTurnAverages.Min();
+                }
+
+                analysis.TotalLegsAnalyzed = Math.Min(analysis.PlayerScorePerTurnAverages.Count, analysis.OpponentScorePerTurnAverages.Count);
+                analysis.Difference = analysis.PlayerAverageScorePerTurn - analysis.OpponentAverageScorePerTurn;
+                analysis.Winner = analysis.Difference > 0 ? "You" : 
+                                 analysis.Difference < 0 ? opponentName : "Tied";
+
+                GenerateAverageScorePerTurnInsights(analysis);
+            }
+            else
+            {
+                // Overall analysis (no specific opponent)
+                analysis.PlayerScorePerTurnAverages = CalculateAverageScorePerTurnToTarget(allPlayerLegDetails, targetValue);
+                analysis.PlayerAverageScorePerTurn = analysis.PlayerScorePerTurnAverages.Any() ? 
+                    analysis.PlayerScorePerTurnAverages.Average() : 0;
+                analysis.TotalLegsAnalyzed = analysis.PlayerScorePerTurnAverages.Count;
+                
+                if (analysis.PlayerScorePerTurnAverages.Any())
+                {
+                    analysis.PlayerBestLegAverage = analysis.PlayerScorePerTurnAverages.Max();
+                    analysis.PlayerWorstLegAverage = analysis.PlayerScorePerTurnAverages.Min();
+                }
+                
+                GenerateOverallAverageScorePerTurnInsights(analysis);
+            }
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving average score per turn analysis for user: {UserId} vs {OpponentName} target: {TargetValue}", userId, opponentName, targetValue);
+            return new AverageScorePerTurnAnalysis { OpponentName = opponentName, TargetValue = targetValue };
+        }
+    }
+
+    public async Task<AverageScorePerTurnAnalysis> GetAnyPlayerAverageScorePerTurnDownToValueAsync(string playerName, int targetValue, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Find player by name
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new AverageScorePerTurnAnalysis { OpponentName = playerName, TargetValue = targetValue };
+            }
+
+            var analysis = new AverageScorePerTurnAnalysis
+            {
+                TargetValue = targetValue,
+                OpponentName = playerName,
+                IsOpponentComparison = false
+            };
+
+            // Get all leg details for this player
+            var allPlayerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+
+            // Calculate average score per turn analysis
+            analysis.PlayerScorePerTurnAverages = CalculateAverageScorePerTurnToTarget(allPlayerLegDetails, targetValue);
+            analysis.PlayerAverageScorePerTurn = analysis.PlayerScorePerTurnAverages.Any() ? 
+                analysis.PlayerScorePerTurnAverages.Average() : 0;
+            analysis.TotalLegsAnalyzed = analysis.PlayerScorePerTurnAverages.Count;
+            
+            if (analysis.PlayerScorePerTurnAverages.Any())
+            {
+                analysis.PlayerBestLegAverage = analysis.PlayerScorePerTurnAverages.Max();
+                analysis.PlayerWorstLegAverage = analysis.PlayerScorePerTurnAverages.Min();
+            }
+            
+            GenerateOverallAverageScorePerTurnInsights(analysis);
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving average score per turn analysis for player: {PlayerName} target: {TargetValue}", playerName, targetValue);
+            return new AverageScorePerTurnAnalysis { OpponentName = playerName, TargetValue = targetValue };
+        }
+    }
+
+    private List<double> CalculateAverageScorePerTurnToTarget(List<LegDetailModel> legDetails, int targetValue)
+    {
+        var averageScorePerTurnPerLeg = new List<double>();
+
+        // Group by leg to analyze each leg separately
+        var legGroups = legDetails.GroupBy(ld => ld.LegId);
+
+        foreach (var legGroup in legGroups)
+        {
+            var orderedTurns = legGroup.OrderBy(ld => ld.Id).ToList();
+            int currentScore = 501; // Standard starting score
+            var scoringTurns = new List<int>();
+
+            foreach (var turn in orderedTurns)
+            {
+                currentScore -= turn.Score;
+                
+                // If we're still above the target, count this as a scoring turn
+                if (currentScore > targetValue)
+                {
+                    scoringTurns.Add(turn.Score);
+                }
+                else
+                {
+                    // We've reached checkout range, stop counting scoring turns
+                    break;
+                }
+            }
+
+            // Calculate average score per turn for this leg's scoring phase
+            if (scoringTurns.Any())
+            {
+                var averageForThisLeg = scoringTurns.Average();
+                averageScorePerTurnPerLeg.Add(averageForThisLeg);
+            }
+        }
+
+        return averageScorePerTurnPerLeg;
+    }
+
+    private void GenerateAverageScorePerTurnInsights(AverageScorePerTurnAnalysis analysis)
+    {
+        if (analysis.TotalLegsAnalyzed == 0) return;
+
+        var targetName = GetTargetValueName(analysis.TargetValue);
+
+        // Comparison insights
+        if (Math.Abs(analysis.Difference) < 2)
+        {
+            analysis.Insights.Add($"Very close scoring to {targetName} - difference of only {Math.Abs(analysis.Difference):F1} points per turn");
+        }
+        else if (analysis.Difference > 5)
+        {
+            analysis.Insights.Add($"Higher scoring average to {targetName} by {analysis.Difference:F1} points per turn vs {analysis.OpponentName}");
+        }
+        else if (analysis.Difference < -5)
+        {
+            analysis.Insights.Add($"Lower scoring average to {targetName} by {Math.Abs(analysis.Difference):F1} points per turn vs {analysis.OpponentName}");
+        }
+
+        // Performance level insights based on common targets
+        if (analysis.TargetValue == 40)
+        {
+            if (analysis.PlayerAverageScorePerTurn > 55)
+            {
+                analysis.Insights.Add("Excellent scoring efficiency to checkout range - maintaining high averages");
+            }
+            else if (analysis.PlayerAverageScorePerTurn < 45)
+            {
+                analysis.Insights.Add("Lower scoring efficiency to checkout range - focus on treble 20 accuracy");
+            }
+        }
+        else if (analysis.TargetValue == 170)
+        {
+            if (analysis.PlayerAverageScorePerTurn > 60)
+            {
+                analysis.Insights.Add("Strong scoring to double-out range - very efficient");
+            }
+            else if (analysis.PlayerAverageScorePerTurn < 50)
+            {
+                analysis.Insights.Add("Scoring efficiency to double-out range needs improvement");
+            }
+        }
+
+        // Consistency insights
+        if (analysis.PlayerScorePerTurnAverages.Any() && analysis.PlayerScorePerTurnAverages.Count > 1)
+        {
+            var variance = analysis.PlayerScorePerTurnAverages.Select(s => Math.Pow(s - analysis.PlayerAverageScorePerTurn, 2)).Average();
+            var stdDev = Math.Sqrt(variance);
+            
+            if (stdDev < 8)
+            {
+                analysis.Insights.Add($"Very consistent scoring to {targetName}");
+            }
+            else if (stdDev > 15)
+            {
+                analysis.Insights.Add($"Inconsistent scoring to {targetName} - work on routine and accuracy");
+            }
+        }
+    }
+
+    private void GenerateOverallAverageScorePerTurnInsights(AverageScorePerTurnAnalysis analysis)
+    {
+        var targetName = GetTargetValueName(analysis.TargetValue);
+
+        if (analysis.TargetValue == 40)
+        {
+            if (analysis.PlayerAverageScorePerTurn > 55)
+            {
+                analysis.Insights.Add("Outstanding scoring efficiency to checkout range");
+            }
+            else if (analysis.PlayerAverageScorePerTurn > 50)
+            {
+                analysis.Insights.Add("Good scoring efficiency to checkout range");
+            }
+            else if (analysis.PlayerAverageScorePerTurn < 45)
+            {
+                analysis.Insights.Add("Focus on improving scoring consistency to reach checkout range more efficiently");
+            }
+        }
+        else if (analysis.TargetValue == 170)
+        {
+            if (analysis.PlayerAverageScorePerTurn > 60)
+            {
+                analysis.Insights.Add("Excellent scoring efficiency to double-out range");
+            }
+            else if (analysis.PlayerAverageScorePerTurn < 50)
+            {
+                analysis.Insights.Add("Work on maintaining higher scoring averages to reach double-out range");
+            }
+        }
+
+        analysis.Insights.Add($"Analyzed across {analysis.TotalLegsAnalyzed} legs");
+        
+        if (analysis.PlayerScorePerTurnAverages.Any())
+        {
+            analysis.Insights.Add($"Best leg average to {targetName}: {analysis.PlayerBestLegAverage:F1}, Worst: {analysis.PlayerWorstLegAverage:F1}");
+        }
+    }
 }  
