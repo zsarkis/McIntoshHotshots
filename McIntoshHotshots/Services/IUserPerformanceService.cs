@@ -16,6 +16,10 @@ public interface IUserPerformanceService
     Task<List<string>> GetAllPlayerNamesAsync(CancellationToken cancellationToken = default);
     Task<AverageScorePerTurnAnalysis> GetAverageScorePerTurnDownToValueAsync(string userId, int targetValue, string? opponentName = null, CancellationToken cancellationToken = default);
     Task<AverageScorePerTurnAnalysis> GetAnyPlayerAverageScorePerTurnDownToValueAsync(string playerName, int targetValue, CancellationToken cancellationToken = default);
+    Task<ScoreDownToValueAnalysis> GetDartsToWinFromValueAnalysisAsync(string userId, int startingValue, string? opponentName = null, CancellationToken cancellationToken = default);
+    Task<ScoreDownToValueAnalysis> GetAnyPlayerDartsToWinFromValueAnalysisAsync(string playerName, int startingValue, CancellationToken cancellationToken = default);
+    Task<FinishingAttemptsAnalysis> GetFinishingAttemptsFromValueAnalysisAsync(string userId, int startingValue, string? opponentName = null, CancellationToken cancellationToken = default);
+    Task<FinishingAttemptsAnalysis> GetAnyPlayerFinishingAttemptsFromValueAnalysisAsync(string playerName, int startingValue, CancellationToken cancellationToken = default);
 }
 
 public class DetailedLegAnalysis
@@ -85,6 +89,30 @@ public class AverageScorePerTurnAnalysis
     public double PlayerWorstLegAverage { get; set; }
     public double OpponentBestLegAverage { get; set; }
     public double OpponentWorstLegAverage { get; set; }
+}
+
+public class FinishingAttemptsAnalysis
+{
+    public string? OpponentName { get; set; }
+    public int StartingValue { get; set; }
+    public int TotalAttempts { get; set; }
+    public int SuccessfulFinishes { get; set; }
+    public int FailedAttempts { get; set; }
+    public double SuccessRate { get; set; }
+    public double AverageDartsInWins { get; set; }
+    public double AverageDartsInLosses { get; set; }
+    public List<int> WinningAttemptDarts { get; set; } = new();
+    public List<int> LosingAttemptDarts { get; set; } = new();
+    public double FastestSuccessfulFinish { get; set; }
+    public double SlowestSuccessfulFinish { get; set; }
+    public double AverageDartsInFailedAttempts { get; set; }
+    public List<string> Insights { get; set; } = new();
+    public bool IsOpponentComparison { get; set; }
+    public int OpponentTotalAttempts { get; set; }
+    public int OpponentSuccessfulFinishes { get; set; }
+    public double OpponentSuccessRate { get; set; }
+    public double OpponentAverageDartsInWins { get; set; }
+    public double OpponentAverageDartsInLosses { get; set; }
 }
 
 public class UserPerformanceData

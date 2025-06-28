@@ -280,6 +280,12 @@ public class CoachingService : ICoachingService
                 case "get_any_player_average_score_per_turn_down_to_value":
                     return await ExecuteAnyPlayerAverageScorePerTurnDownToValueFunction(argumentsJson, cancellationToken);
                 
+                case "get_darts_to_win_from_value":
+                    return await ExecuteDartsToWinFromValueFunction(argumentsJson, userId, cancellationToken);
+                
+                case "get_any_player_darts_to_win_from_value":
+                    return await ExecuteAnyPlayerDartsToWinFromValueFunction(argumentsJson, cancellationToken);
+                
                 default:
                     _logger.LogWarning("Unknown function called: {FunctionName}", functionName);
                     return $"Unknown function: {functionName}";
@@ -948,6 +954,125 @@ public class CoachingService : ICoachingService
         }
     }
 
+    private async Task<string> ExecuteDartsToWinFromValueFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing darts to win from value with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var startingValue = argsDoc.RootElement.GetProperty("starting_value").GetInt32();
+            
+            string? opponentName = null;
+            if (argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentElement))
+            {
+                opponentName = opponentElement.GetString();
+            }
+
+            _logger.LogInformation("Getting darts to win from value analysis for user {UserId} vs {OpponentName} starting: {StartingValue}", userId, opponentName ?? "All Opponents", startingValue);
+            var analysis = await _performanceService.GetDartsToWinFromValueAnalysisAsync(userId, startingValue, opponentName, cancellationToken);
+            
+            _logger.LogInformation("Darts to win from value analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}, OpponentAverage={OpponentAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageDarts, analysis.OpponentAverageDarts);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = string.IsNullOrEmpty(opponentName) 
+                    ? $"No legs found where you reached {startingValue} and won. You may not have won any legs from that position yet."
+                    : $"No legs found against {opponentName} where you reached {startingValue} and won. They may not exist in the database or you haven't won legs from that position against them.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                starting_value = analysis.TargetValue,
+                opponent_name = analysis.OpponentName,
+                is_opponent_comparison = analysis.IsOpponentComparison,
+                player_average_darts = Math.Round(analysis.PlayerAverageDarts, 1),
+                player_fastest_darts = analysis.PlayerFastestDarts,
+                player_slowest_darts = analysis.PlayerSlowestDarts,
+                opponent_average_darts = analysis.IsOpponentComparison ? Math.Round(analysis.OpponentAverageDarts, 1) : (double?)null,
+                opponent_fastest_darts = analysis.IsOpponentComparison ? analysis.OpponentFastestDarts : (double?)null,
+                opponent_slowest_darts = analysis.IsOpponentComparison ? analysis.OpponentSlowestDarts : (double?)null,
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                winner = analysis.IsOpponentComparison ? analysis.Winner : null,
+                difference = analysis.IsOpponentComparison ? Math.Round(analysis.Difference, 1) : (double?)null,
+                insights = analysis.Insights,
+                summary = analysis.IsOpponentComparison 
+                    ? $"Darts to win from {startingValue}: You average {analysis.PlayerAverageDarts:F1}, they average {analysis.OpponentAverageDarts:F1} (difference: {(analysis.Difference < 0 ? "" : "+")}{analysis.Difference:F1})"
+                    : $"Darts to win from {startingValue}: Average {analysis.PlayerAverageDarts:F1}, fastest {analysis.PlayerFastestDarts}, slowest {analysis.PlayerSlowestDarts}",
+                human_readable = analysis.IsOpponentComparison 
+                    ? $"Finishing from {startingValue} vs {analysis.OpponentName}: Your {analysis.PlayerAverageDarts:F1} darts vs their {analysis.OpponentAverageDarts:F1} darts"
+                    : $"Your finishing from {startingValue}: {analysis.PlayerAverageDarts:F1} darts average (fastest: {analysis.PlayerFastestDarts}, slowest: {analysis.PlayerSlowestDarts})"
+            });
+            
+            _logger.LogInformation("Darts to win from value analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteDartsToWinFromValueFunction for user {UserId}", userId);
+            return $"Error retrieving darts to win from value analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAnyPlayerDartsToWinFromValueFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player darts to win from value with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+            var startingValue = argsDoc.RootElement.GetProperty("starting_value").GetInt32();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player darts to win from value request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting darts to win from value analysis for player: {PlayerName} starting: {StartingValue}", playerName, startingValue);
+            var analysis = await _performanceService.GetAnyPlayerDartsToWinFromValueAnalysisAsync(playerName, startingValue, cancellationToken);
+            
+            _logger.LogInformation("Any player darts to win from value analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageDarts);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = $"No legs found where {playerName} reached {startingValue} and won. They may not exist in the database or haven't won legs from that position.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = playerName,
+                starting_value = analysis.TargetValue,
+                average_darts = Math.Round(analysis.PlayerAverageDarts, 1),
+                fastest_darts = analysis.PlayerFastestDarts,
+                slowest_darts = analysis.PlayerSlowestDarts,
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                insights = analysis.Insights,
+                summary = $"{playerName} averages {analysis.PlayerAverageDarts:F1} darts to win from {startingValue} (fastest: {analysis.PlayerFastestDarts}, slowest: {analysis.PlayerSlowestDarts})",
+                human_readable = $"{playerName} takes {analysis.PlayerAverageDarts:F1} darts on average to win from {startingValue}"
+            });
+            
+            _logger.LogInformation("Any player darts to win from value analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerDartsToWinFromValueFunction");
+            return $"Error retrieving darts to win from value analysis: {ex.Message}";
+        }
+    }
+
     private object[] GetAvailableTools()
     {
         return new object[]
@@ -1218,6 +1343,60 @@ public class CoachingService : ICoachingService
                         required = new[] { "player_name", "target_value" }
                     }
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_darts_to_win_from_value",
+                    description = "Get the number of darts it takes to WIN from a specific score value (finish the leg). This tracks darts from when you reach a certain score until you finish at 0. Use this when users ask about finishing/winning from a specific score.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            starting_value = new
+                            {
+                                type = "integer",
+                                description = "The score value to analyze finishing from (e.g., 170, 100, 50)"
+                            },
+                            opponent_name = new
+                            {
+                                type = "string",
+                                description = "Optional: The exact name of the opponent to compare finishing speed against. If not provided, returns overall analysis."
+                            }
+                        },
+                        required = new[] { "starting_value" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_any_player_darts_to_win_from_value",
+                    description = "Get the number of darts it takes for ANY player to WIN from a specific score value (finish the leg). Shows their finishing ability from a certain score down to 0.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            player_name = new
+                            {
+                                type = "string",
+                                description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            },
+                            starting_value = new
+                            {
+                                type = "integer",
+                                description = "The score value to analyze finishing from (e.g., 170, 100, 50)"
+                            }
+                        },
+                        required = new[] { "player_name", "starting_value" }
+                    }
+                }
             }
         };
     }
@@ -1267,6 +1446,7 @@ IMPORTANT:
 - Use get_first_nine_analysis for ""first 9"" questions (shows average score per 3-dart turn, not total)
 - Use get_score_down_to_value_analysis for pace questions (e.g., ""how many darts to get to 170?"")
 - Use get_average_score_per_turn_down_to_value for scoring efficiency questions (e.g., ""what's my average score per turn down to 40?"")
+- Use get_darts_to_win_from_value for finishing questions (e.g., ""how many darts to win from 170?"")
 - Use get_any_player_* functions when asked about ANY player (not just opponents you've faced)
 - Use get_all_player_names when users want to know what players are available
 
@@ -1275,6 +1455,8 @@ EXAMPLES OF ANY PLAYER QUERIES:
 - ""How fast does Chris get to 170?"" → Use get_any_player_score_down_to_value_analysis(""Chris Eldert"", 170)
 - ""What's my average score per turn down to 40?"" → Use get_average_score_per_turn_down_to_value(40)
 - ""What's Jon's scoring average while getting to checkout range?"" → Use get_any_player_average_score_per_turn_down_to_value(""Jon Strang"", 40)
+- ""How many darts to win from 170?"" → Use get_darts_to_win_from_value(170)
+- ""How fast does Chris finish from 100?"" → Use get_any_player_darts_to_win_from_value(""Chris Eldert"", 100)
 - ""What are all the players?"" → Use get_all_player_names()
 - ""Show me Jon's stats"" → Use get_any_player_performance(""Jon Strang"")
 

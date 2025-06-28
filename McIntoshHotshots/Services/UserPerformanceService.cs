@@ -1392,4 +1392,296 @@ public class UserPerformanceService : IUserPerformanceService
             analysis.Insights.Add($"Best leg average to {targetName}: {analysis.PlayerBestLegAverage:F1}, Worst: {analysis.PlayerWorstLegAverage:F1}");
         }
     }
+
+    public async Task<ScoreDownToValueAnalysis> GetDartsToWinFromValueAnalysisAsync(string userId, int startingValue, string? opponentName = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var player = await _playerRepo.GetPlayerByUserIdAsync(userId);
+            if (player == null)
+            {
+                return new ScoreDownToValueAnalysis();
+            }
+
+            var analysis = new ScoreDownToValueAnalysis
+            {
+                TargetValue = startingValue,
+                OpponentName = opponentName,
+                IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
+            };
+
+            // Get all leg details for the player
+            var allPlayerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+
+            if (analysis.IsOpponentComparison && !string.IsNullOrEmpty(opponentName))
+            {
+                // Find opponent and filter to head-to-head matches
+                var allPlayers = await _playerRepo.GetPlayersAsync();
+                var opponent = allPlayers.FirstOrDefault(p => 
+                    string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+                if (opponent == null)
+                {
+                    return analysis;
+                }
+
+                // Get matches between these players
+                var playerMatches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+                var headToHeadMatches = playerMatches.Where(m => 
+                    (m.HomePlayerId == player.Id && m.AwayPlayerId == opponent.Id) ||
+                    (m.HomePlayerId == opponent.Id && m.AwayPlayerId == player.Id)).ToList();
+
+                if (!headToHeadMatches.Any())
+                {
+                    return analysis;
+                }
+
+                // Filter player leg details to head-to-head matches
+                var playerH2HLegDetails = allPlayerLegDetails.Where(ld => 
+                    headToHeadMatches.Any(m => m.Id == ld.MatchId)).ToList();
+
+                // Get opponent's leg details for the same matches
+                var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
+                var opponentH2HLegDetails = opponentLegDetails.Where(ld => 
+                    headToHeadMatches.Any(m => m.Id == ld.MatchId)).ToList();
+
+                // Calculate darts to win from value for both players
+                analysis.PlayerDartCounts = CalculateDartsToWinFromValue(playerH2HLegDetails, startingValue);
+                analysis.OpponentDartCounts = CalculateDartsToWinFromValue(opponentH2HLegDetails, startingValue);
+                
+                if (analysis.PlayerDartCounts.Any())
+                {
+                    analysis.PlayerAverageDarts = analysis.PlayerDartCounts.Average();
+                    analysis.PlayerFastestDarts = analysis.PlayerDartCounts.Min();
+                    analysis.PlayerSlowestDarts = analysis.PlayerDartCounts.Max();
+                }
+
+                if (analysis.OpponentDartCounts.Any())
+                {
+                    analysis.OpponentAverageDarts = analysis.OpponentDartCounts.Average();
+                    analysis.OpponentFastestDarts = analysis.OpponentDartCounts.Min();
+                    analysis.OpponentSlowestDarts = analysis.OpponentDartCounts.Max();
+                }
+
+                analysis.TotalLegsAnalyzed = Math.Min(analysis.PlayerDartCounts.Count, analysis.OpponentDartCounts.Count);
+                analysis.Difference = analysis.PlayerAverageDarts - analysis.OpponentAverageDarts;
+                analysis.Winner = analysis.Difference < 0 ? "You" : 
+                                 analysis.Difference > 0 ? opponentName : "Tied";
+
+                GenerateDartsToWinFromValueInsights(analysis);
+            }
+            else
+            {
+                // Overall analysis (no specific opponent)
+                analysis.PlayerDartCounts = CalculateDartsToWinFromValue(allPlayerLegDetails, startingValue);
+                if (analysis.PlayerDartCounts.Any())
+                {
+                    analysis.PlayerAverageDarts = analysis.PlayerDartCounts.Average();
+                    analysis.PlayerFastestDarts = analysis.PlayerDartCounts.Min();
+                    analysis.PlayerSlowestDarts = analysis.PlayerDartCounts.Max();
+                }
+                analysis.TotalLegsAnalyzed = analysis.PlayerDartCounts.Count;
+                
+                GenerateOverallDartsToWinFromValueInsights(analysis);
+            }
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving darts to win from value analysis for user: {UserId} vs {OpponentName} starting: {StartingValue}", userId, opponentName, startingValue);
+            return new ScoreDownToValueAnalysis { OpponentName = opponentName, TargetValue = startingValue };
+        }
+    }
+
+    public async Task<ScoreDownToValueAnalysis> GetAnyPlayerDartsToWinFromValueAnalysisAsync(string playerName, int startingValue, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Find player by name
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new ScoreDownToValueAnalysis { OpponentName = playerName, TargetValue = startingValue };
+            }
+
+            var analysis = new ScoreDownToValueAnalysis
+            {
+                TargetValue = startingValue,
+                OpponentName = playerName,
+                IsOpponentComparison = false
+            };
+
+            // Get all leg details for this player
+            var allPlayerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+
+            // Calculate darts to win from value analysis
+            analysis.PlayerDartCounts = CalculateDartsToWinFromValue(allPlayerLegDetails, startingValue);
+            if (analysis.PlayerDartCounts.Any())
+            {
+                analysis.PlayerAverageDarts = analysis.PlayerDartCounts.Average();
+                analysis.PlayerFastestDarts = analysis.PlayerDartCounts.Min();
+                analysis.PlayerSlowestDarts = analysis.PlayerDartCounts.Max();
+            }
+            analysis.TotalLegsAnalyzed = analysis.PlayerDartCounts.Count;
+            
+            GenerateOverallDartsToWinFromValueInsights(analysis);
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving darts to win from value analysis for player: {PlayerName} starting: {StartingValue}", playerName, startingValue);
+            return new ScoreDownToValueAnalysis { OpponentName = playerName, TargetValue = startingValue };
+        }
+    }
+
+    private List<int> CalculateDartsToWinFromValue(List<LegDetailModel> legDetails, int startingValue)
+    {
+        var dartsToWinFromValue = new List<int>();
+
+        // Group by leg to analyze each leg separately
+        var legGroups = legDetails.GroupBy(ld => ld.LegId);
+
+        foreach (var legGroup in legGroups)
+        {
+            var orderedTurns = legGroup.OrderBy(ld => ld.Id).ToList();
+            int currentScore = 501; // Standard starting score
+            bool reachedStartingValue = false;
+            int dartsFromStartingValue = 0;
+            bool wonFromStartingValue = false;
+
+            foreach (var turn in orderedTurns)
+            {
+                currentScore -= turn.Score;
+                
+                // Check if we've reached the starting value
+                if (!reachedStartingValue && currentScore <= startingValue)
+                {
+                    reachedStartingValue = true;
+                    // Add the darts from this turn (we just reached or passed the starting value)
+                    dartsFromStartingValue += turn.DartsUsed;
+                }
+                else if (reachedStartingValue)
+                {
+                    // We're now counting darts from the starting value
+                    dartsFromStartingValue += turn.DartsUsed;
+                }
+                
+                // Check if we won the leg
+                if (currentScore == 0)
+                {
+                    wonFromStartingValue = true;
+                    break;
+                }
+            }
+
+            // Only count legs where we reached the starting value AND won the leg
+            if (reachedStartingValue && wonFromStartingValue && dartsFromStartingValue > 0)
+            {
+                dartsToWinFromValue.Add(dartsFromStartingValue);
+            }
+        }
+
+        return dartsToWinFromValue;
+    }
+
+    private void GenerateDartsToWinFromValueInsights(ScoreDownToValueAnalysis analysis)
+    {
+        if (analysis.TotalLegsAnalyzed == 0) return;
+
+        var startingName = GetTargetValueName(analysis.TargetValue);
+
+        // Comparison insights
+        if (Math.Abs(analysis.Difference) < 1)
+        {
+            analysis.Insights.Add($"Very close finishing from {startingName} - difference of only {Math.Abs(analysis.Difference):F1} darts");
+        }
+        else if (analysis.Difference < -2)
+        {
+            analysis.Insights.Add($"Faster finishing from {startingName} by {Math.Abs(analysis.Difference):F1} darts vs {analysis.OpponentName}");
+        }
+        else if (analysis.Difference > 2)
+        {
+            analysis.Insights.Add($"Slower finishing from {startingName} by {analysis.Difference:F1} darts vs {analysis.OpponentName}");
+        }
+
+        // Performance level insights based on common starting values
+        if (analysis.TargetValue == 170)
+        {
+            if (analysis.PlayerAverageDarts < 6)
+            {
+                analysis.Insights.Add("Excellent finishing from double-out range - very efficient");
+            }
+            else if (analysis.PlayerAverageDarts > 10)
+            {
+                analysis.Insights.Add("Finishing from double-out range needs improvement - work on double accuracy");
+            }
+        }
+        else if (analysis.TargetValue == 100)
+        {
+            if (analysis.PlayerAverageDarts < 4)
+            {
+                analysis.Insights.Add("Strong finishing from 100 - good checkout skills");
+            }
+            else if (analysis.PlayerAverageDarts > 7)
+            {
+                analysis.Insights.Add("Work on finishing from 100 - practice common checkout combinations");
+            }
+        }
+
+        // Consistency insights
+        if (analysis.PlayerDartCounts.Any() && analysis.PlayerDartCounts.Count > 1)
+        {
+            var variance = analysis.PlayerDartCounts.Select(d => Math.Pow(d - analysis.PlayerAverageDarts, 2)).Average();
+            var stdDev = Math.Sqrt(variance);
+            
+            if (stdDev < 2)
+            {
+                analysis.Insights.Add($"Very consistent finishing from {startingName}");
+            }
+            else if (stdDev > 4)
+            {
+                analysis.Insights.Add($"Inconsistent finishing from {startingName} - work on routine and composure");
+            }
+        }
+    }
+
+    private void GenerateOverallDartsToWinFromValueInsights(ScoreDownToValueAnalysis analysis)
+    {
+        var startingName = GetTargetValueName(analysis.TargetValue);
+
+        if (analysis.TargetValue == 170)
+        {
+            if (analysis.PlayerAverageDarts < 6)
+            {
+                analysis.Insights.Add("Outstanding finishing from double-out range");
+            }
+            else if (analysis.PlayerAverageDarts > 10)
+            {
+                analysis.Insights.Add("Focus on improving finishing consistency from double-out range");
+            }
+        }
+        else if (analysis.TargetValue == 100)
+        {
+            if (analysis.PlayerAverageDarts < 4)
+            {
+                analysis.Insights.Add("Excellent finishing from 100");
+            }
+            else if (analysis.PlayerAverageDarts > 7)
+            {
+                analysis.Insights.Add("Work on finishing combinations from 100");
+            }
+        }
+
+        analysis.Insights.Add($"Analyzed across {analysis.TotalLegsAnalyzed} legs where you reached {startingName} and won");
+        
+        if (analysis.PlayerDartCounts.Any())
+        {
+            analysis.Insights.Add($"Best finish from {startingName}: {analysis.PlayerFastestDarts} darts, Worst: {analysis.PlayerSlowestDarts} darts");
+        }
+    }
 }  
