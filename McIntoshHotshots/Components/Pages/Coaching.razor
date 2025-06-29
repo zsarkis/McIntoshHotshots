@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using McIntoshHotshots.Services
 @attribute [Authorize]
 @inject ICoachingService CoachingService
@@ -21,7 +22,7 @@
     </div>
 
     <div class="chat-container">
-        <div class="messages-container" @ref="messagesContainer">
+        <div class="messages-container" @ref="messagesContainer" data-scroll-container>
             @if (messages.Count == 0)
             {
                 <div class="welcome-message">
@@ -245,14 +246,23 @@
     private async Task ScrollToBottom()
     {
         await Task.Delay(50); // Small delay to ensure content is rendered
-        await JSRuntime.InvokeVoidAsync("scrollToBottom", messagesContainer);
-    }
-}
-
-<script>
-    window.scrollToBottom = (element) => {
-        if (element) {
-            element.scrollTop = element.scrollHeight;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("CoachingChat.scrollToBottom", messagesContainer);
+        }
+        catch (JSException ex)
+        {
+            // Log the error but don't break the user experience
+            Console.WriteLine($"JavaScript error in ScrollToBottom: {ex.Message}");
+            // Fallback: try to scroll using a simple approach
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("eval", $"document.querySelector('[data-scroll-container]').scrollTop = document.querySelector('[data-scroll-container]').scrollHeight");
+            }
+            catch
+            {
+                // If all else fails, just continue without scrolling
+            }
         }
     }
-</script>
+}

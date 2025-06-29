@@ -43,8 +43,12 @@ public class UserPerformanceService : IUserPerformanceService
 
             // Get recent leg details (last 50 turns)
             var allLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
-            var recentLegDetails = allLegDetails.TakeLast(50).ToList();
-
+            var recentLegDetails = allLegDetails
+                .OrderByDescending(ld => ld.Id) // Assuming Id represents chronological order
+                .Take(50)
+                .OrderBy(ld => ld.Id) // Restore original order if needed
+                .ToList();
+            
             // Calculate performance statistics
             var stats = CalculatePerformanceStats(player, allMatches, allLegDetails);
 
