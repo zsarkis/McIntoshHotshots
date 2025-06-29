@@ -21,6 +21,7 @@
     <environment include="Development">
         <link rel="stylesheet" href="~/bootstrap/bootstrap.min.css" />
         <link rel="stylesheet" href="~/app.css" />
+        <link rel="stylesheet" href="~/css/identity-layout.css" />
     </environment>
     <environment exclude="Development">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css"
@@ -28,6 +29,7 @@
               asp-fallback-href="~/bootstrap/bootstrap.min.css"
               asp-fallback-test-class="sr-only" asp-fallback-test-property="position" asp-fallback-test-value="absolute" />
         <link rel="stylesheet" href="~/app.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/identity-layout.css" asp-append-version="true" />
     </environment>
 </head>
 <body class="identity-layout">
@@ -96,7 +98,7 @@
                         Help
                     </a>
                 </div>
-                <p class="footer-copyright">&copy; 2025 McIntosh Hotshots. All rights reserved.</p>
+                <p class="footer-copyright">&copy; @DateTime.Now.Year McIntosh Hotshots. All rights reserved.</p>
             </div>
         </footer>
     </div>
@@ -121,220 +123,5 @@
     </environment>
 
     @await RenderSectionAsync("Scripts", required: false)
-
-    <style>
-        /* Identity Layout Specific Styles */
-        .identity-layout {
-            background: var(--bg-primary);
-            min-height: 100vh;
-        }
-
-        .identity-header {
-            background: rgba(10, 10, 11, 0.95);
-            backdrop-filter: blur(20px) saturate(180%);
-            border-bottom: 1px solid var(--border-primary);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .identity-header .header-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: var(--spacing-md) var(--spacing-xl);
-            height: 64px;
-        }
-
-        .identity-header .logo-section {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-md);
-        }
-
-        .identity-header .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: var(--gradient-primary);
-            border-radius: var(--radius-lg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.25rem;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .identity-header .brand-link {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .identity-header .brand-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin: 0;
-        }
-
-        .identity-header .brand-subtitle {
-            font-size: 0.75rem;
-            color: var(--text-tertiary);
-            font-weight: 400;
-        }
-
-        .identity-nav {
-            display: flex;
-            align-items: center;
-        }
-
-        .identity-nav .navbar-nav {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        .identity-nav .nav-item {
-            display: flex;
-        }
-
-        .identity-nav .nav-link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            padding: var(--spacing-sm) var(--spacing-md);
-            border-radius: var(--radius-md);
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: all var(--transition-fast);
-            border: none;
-            background: none;
-            cursor: pointer;
-        }
-
-        .identity-nav .nav-link:hover {
-            color: var(--text-primary);
-            background: var(--interactive-hover);
-        }
-
-        .identity-nav .btn-link {
-            color: var(--text-secondary);
-            border: none;
-            background: none;
-            padding: var(--spacing-sm) var(--spacing-md);
-            border-radius: var(--radius-md);
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: all var(--transition-fast);
-            cursor: pointer;
-        }
-
-        .identity-nav .btn-link:hover {
-            color: var(--text-primary);
-            background: var(--interactive-hover);
-        }
-
-        .nav-error {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-            color: var(--accent-error);
-            font-size: 0.875rem;
-            padding: var(--spacing-sm) var(--spacing-md);
-            background: rgba(239, 68, 68, 0.1);
-            border-radius: var(--radius-md);
-        }
-
-        .identity-main {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: var(--spacing-2xl) var(--spacing-xl);
-            min-height: calc(100vh - 200px);
-        }
-
-        .identity-container {
-            width: 100%;
-            max-width: 480px;
-        }
-
-        .identity-content {
-            background: var(--gradient-surface);
-            border: 1px solid var(--border-primary);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
-            padding: var(--spacing-2xl);
-            margin-top: var(--spacing-xl);
-        }
-
-        .identity-footer {
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--border-primary);
-            padding: var(--spacing-lg) var(--spacing-xl);
-            text-align: center;
-        }
-
-        .identity-footer .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .identity-footer .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: var(--spacing-lg);
-            margin-bottom: var(--spacing-md);
-        }
-
-        .identity-footer .footer-link {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            transition: all var(--transition-fast);
-        }
-
-        .identity-footer .footer-link:hover {
-            color: var(--accent-primary);
-        }
-
-        .identity-footer .footer-copyright {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            margin: 0;
-        }
-
-        /* Responsive */
-        @@media (max-width: 768px) {
-            .identity-header .header-content {
-                padding: var(--spacing-sm) var(--spacing-md);
-                height: 56px;
-            }
-
-            .identity-header .brand-title {
-                font-size: 1.125rem;
-            }
-
-            .identity-main {
-                padding: var(--spacing-lg) var(--spacing-md);
-            }
-
-            .identity-content {
-                padding: var(--spacing-xl);
-            }
-
-            .identity-footer .footer-links {
-                flex-direction: column;
-                gap: var(--spacing-sm);
-            }
-        }
-    </style>
 </body>
 </html>
