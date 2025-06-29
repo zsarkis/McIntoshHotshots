@@ -35,8 +35,8 @@
             </div>
             <div class="hero-stats">
                 <div class="stat-item">
-                    <div class="stat-number">@ActivePlayersDisplay</div>
-                    <div class="stat-label">Active Players</div>
+                    <div class="stat-number">@PlayersDisplay</div>
+                    <div class="stat-label">Players</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number">@TournamentsDisplay</div>
@@ -223,7 +223,7 @@
 @code
 {
     // Properties for dynamic statistics
-    public string ActivePlayersDisplay { get; set; } = "Loading...";
+    public string PlayersDisplay { get; set; } = "Loading...";
     public string TournamentsDisplay { get; set; } = "Loading...";
     public string GamesPlayedDisplay { get; set; } = "Loading...";
 
@@ -245,18 +245,18 @@
     private async Task LoadStatisticsAsync()
     {
         // Load all statistics in parallel for better performance
-        var activePlayersTask = GetActivePlayersCountAsync();
+        var playersTask = GetPlayersCountAsync();
         var tournamentsTask = GetTournamentsCountAsync();
         var gamesPlayedTask = GetGamesPlayedCountAsync();
 
-        await Task.WhenAll(activePlayersTask, tournamentsTask, gamesPlayedTask);
+        await Task.WhenAll(playersTask, tournamentsTask, gamesPlayedTask);
 
         // Format the display values
-        var activePlayersCount = await activePlayersTask;
+        var playersCount = await playersTask;
         var tournamentsCount = await tournamentsTask;
         var gamesPlayedCount = await gamesPlayedTask;
 
-        ActivePlayersDisplay = FormatNumber(activePlayersCount);
+        PlayersDisplay = FormatNumber(playersCount);
         TournamentsDisplay = tournamentsCount.ToString();
         GamesPlayedDisplay = FormatNumber(gamesPlayedCount);
 
@@ -264,7 +264,7 @@
         StateHasChanged();
     }
 
-    private async Task<int> GetActivePlayersCountAsync()
+    private async Task<int> GetPlayersCountAsync()
     {
         var players = await PlayerRepo.GetPlayersAsync();
         return players.Count();
@@ -295,7 +295,7 @@
 
     private void SetFallbackValues()
     {
-        ActivePlayersDisplay = "1,250+";
+        PlayersDisplay = "1,250+";
         TournamentsDisplay = "48";
         GamesPlayedDisplay = "5.2K";
     }
