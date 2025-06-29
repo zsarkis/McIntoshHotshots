@@ -12,6 +12,7 @@ public interface ILegRepo
     Task<LegModel> CreateLegAsync(LegModel leg);
     Task<int> UpdateLegAsync(LegModel leg);
     Task<List<LegModel>> GetLegsByPlayerIdAsync(int playerId);
+    Task<List<LegModel>> GetLegsAsync();
 }
 
 public class LegRepo : ILegRepo
@@ -140,5 +141,24 @@ public class LegRepo : ILegRepo
         var id = await InsertLegAsync(leg);
         leg.Id = id;
         return leg;
+    }
+
+    public async Task<List<LegModel>> GetLegsAsync()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var query = @"
+        SELECT 
+            id AS Id,
+            match_id AS MatchId,
+            leg_number AS LegNumber,
+            home_player_darts_thrown AS HomePlayerDartsThrown,
+            away_player_darts_thrown AS AwayPlayerDartsThrown,
+            loser_score_remaining AS LoserScoreRemaining,
+            winner_id AS WinnerId,
+            time_elapsed AS TimeElapsed
+        FROM leg";
+
+        var results = await connection.QueryAsync<LegModel>(query);
+        return results.ToList();
     }
 }

@@ -8,17 +8,20 @@ public class UserPerformanceService : IUserPerformanceService
     private readonly IPlayerRepo _playerRepo;
     private readonly IMatchSummaryRepo _matchSummaryRepo;
     private readonly ILegDetailRepo _legDetailRepo;
+    private readonly ILegRepo _legRepo;
     private readonly ILogger<UserPerformanceService> _logger;
 
     public UserPerformanceService(
         IPlayerRepo playerRepo,
         IMatchSummaryRepo matchSummaryRepo,
         ILegDetailRepo legDetailRepo,
+        ILegRepo legRepo,
         ILogger<UserPerformanceService> logger)
     {
         _playerRepo = playerRepo;
         _matchSummaryRepo = matchSummaryRepo;
         _legDetailRepo = legDetailRepo;
+        _legRepo = legRepo;
         _logger = logger;
     }
 
@@ -1682,6 +1685,295 @@ public class UserPerformanceService : IUserPerformanceService
         if (analysis.PlayerDartCounts.Any())
         {
             analysis.Insights.Add($"Best finish from {startingName}: {analysis.PlayerFastestDarts} darts, Worst: {analysis.PlayerSlowestDarts} darts");
+        }
+    }
+
+    public async Task<FinishingAttemptsAnalysis> GetFinishingAttemptsFromValueAnalysisAsync(string userId, int startingValue, string? opponentName = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var player = await _playerRepo.GetPlayerByUserIdAsync(userId);
+            if (player == null)
+            {
+                return new FinishingAttemptsAnalysis();
+            }
+
+            var analysis = new FinishingAttemptsAnalysis
+            {
+                StartingValue = startingValue,
+                OpponentName = opponentName,
+                IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
+            };
+
+            // Get all leg details for the player
+            var allPlayerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+            var allLegs = await _legRepo.GetLegsAsync();
+
+            if (analysis.IsOpponentComparison && !string.IsNullOrEmpty(opponentName))
+            {
+                // Find opponent and filter to head-to-head matches
+                var allPlayers = await _playerRepo.GetPlayersAsync();
+                var opponent = allPlayers.FirstOrDefault(p => 
+                    string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+                if (opponent == null)
+                {
+                    return analysis;
+                }
+
+                // Get matches between these players
+                var playerMatches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+                var headToHeadMatches = playerMatches.Where(m => 
+                    (m.HomePlayerId == player.Id && m.AwayPlayerId == opponent.Id) ||
+                    (m.HomePlayerId == opponent.Id && m.AwayPlayerId == player.Id)).ToList();
+
+                if (!headToHeadMatches.Any())
+                {
+                    return analysis;
+                }
+
+                // Filter to head-to-head legs
+                var h2hLegs = allLegs.Where(leg => headToHeadMatches.Any(m => m.Id == leg.MatchId)).ToList();
+                var playerH2HLegDetails = allPlayerLegDetails.Where(ld => 
+                    h2hLegs.Any(leg => leg.Id == ld.LegId)).ToList();
+
+                // Get opponent's leg details for the same legs
+                var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
+                var opponentH2HLegDetails = opponentLegDetails.Where(ld => 
+                    h2hLegs.Any(leg => leg.Id == ld.LegId)).ToList();
+
+                // Calculate finishing attempts for both players
+                CalculateFinishingAttempts(analysis, playerH2HLegDetails, h2hLegs, player.Id, startingValue, "player");
+                CalculateFinishingAttempts(analysis, opponentH2HLegDetails, h2hLegs, opponent.Id, startingValue, "opponent");
+
+                GenerateFinishingAttemptsInsights(analysis, true);
+            }
+            else
+            {
+                // Overall analysis (no specific opponent)
+                CalculateFinishingAttempts(analysis, allPlayerLegDetails, allLegs, player.Id, startingValue, "player");
+                GenerateFinishingAttemptsInsights(analysis, false);
+            }
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving finishing attempts analysis for user: {UserId} vs {OpponentName} starting: {StartingValue}", userId, opponentName, startingValue);
+            return new FinishingAttemptsAnalysis { OpponentName = opponentName, StartingValue = startingValue };
+        }
+    }
+
+    public async Task<FinishingAttemptsAnalysis> GetAnyPlayerFinishingAttemptsFromValueAnalysisAsync(string playerName, int startingValue, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Find player by name
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new FinishingAttemptsAnalysis { OpponentName = playerName, StartingValue = startingValue };
+            }
+
+            var analysis = new FinishingAttemptsAnalysis
+            {
+                StartingValue = startingValue,
+                OpponentName = playerName,
+                IsOpponentComparison = false
+            };
+
+            // Get all leg details and legs for this player
+            var allPlayerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+            var allLegs = await _legRepo.GetLegsAsync();
+
+            // Calculate finishing attempts
+            CalculateFinishingAttempts(analysis, allPlayerLegDetails, allLegs, player.Id, startingValue, "player");
+            GenerateFinishingAttemptsInsights(analysis, false);
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving finishing attempts analysis for player: {PlayerName} starting: {StartingValue}", playerName, startingValue);
+            return new FinishingAttemptsAnalysis { OpponentName = playerName, StartingValue = startingValue };
+        }
+    }
+
+    private void CalculateFinishingAttempts(FinishingAttemptsAnalysis analysis, List<LegDetailModel> legDetails, List<LegModel> allLegs, int playerId, int startingValue, string playerType)
+    {
+        var winningAttempts = new List<int>();
+        var losingAttempts = new List<int>();
+
+        // Group by leg to analyze each leg separately
+        var legGroups = legDetails.GroupBy(ld => ld.LegId);
+
+        foreach (var legGroup in legGroups)
+        {
+            var legId = legGroup.Key;
+            var leg = allLegs.FirstOrDefault(l => l.Id == legId);
+            if (leg == null) continue;
+
+            var orderedTurns = legGroup.OrderBy(ld => ld.Id).ToList();
+            int currentScore = 501; // Standard starting score
+            bool reachedStartingValue = false;
+            int dartsFromStartingValue = 0;
+            bool playerWonLeg = leg.WinnerId == playerId;
+
+            foreach (var turn in orderedTurns)
+            {
+                currentScore -= turn.Score;
+                
+                // Check if we've reached the starting value
+                if (!reachedStartingValue && currentScore <= startingValue)
+                {
+                    reachedStartingValue = true;
+                    // Add the darts from this turn (we just reached or passed the starting value)
+                    dartsFromStartingValue += turn.DartsUsed;
+                }
+                else if (reachedStartingValue)
+                {
+                    // We're now counting darts from the starting value
+                    dartsFromStartingValue += turn.DartsUsed;
+                }
+                
+                // Check if player finished the leg
+                if (currentScore == 0)
+                {
+                    break;
+                }
+            }
+
+            // Only count legs where we reached the starting value
+            if (reachedStartingValue && dartsFromStartingValue > 0)
+            {
+                if (playerWonLeg)
+                {
+                    winningAttempts.Add(dartsFromStartingValue);
+                }
+                else
+                {
+                    losingAttempts.Add(dartsFromStartingValue);
+                }
+            }
+        }
+
+        // Set the appropriate properties based on player type
+        if (playerType == "player")
+        {
+            analysis.WinningAttemptDarts = winningAttempts;
+            analysis.LosingAttemptDarts = losingAttempts;
+            analysis.SuccessfulFinishes = winningAttempts.Count;
+            analysis.FailedAttempts = losingAttempts.Count;
+            analysis.TotalAttempts = winningAttempts.Count + losingAttempts.Count;
+            
+            if (analysis.TotalAttempts > 0)
+            {
+                analysis.SuccessRate = (double)analysis.SuccessfulFinishes / analysis.TotalAttempts * 100;
+            }
+            
+            if (winningAttempts.Any())
+            {
+                analysis.AverageDartsInWins = winningAttempts.Average();
+                analysis.FastestSuccessfulFinish = winningAttempts.Min();
+                analysis.SlowestSuccessfulFinish = winningAttempts.Max();
+            }
+            
+            if (losingAttempts.Any())
+            {
+                analysis.AverageDartsInLosses = losingAttempts.Average();
+                analysis.AverageDartsInFailedAttempts = losingAttempts.Average();
+            }
+        }
+        else // opponent
+        {
+            analysis.OpponentSuccessfulFinishes = winningAttempts.Count;
+            analysis.OpponentTotalAttempts = winningAttempts.Count + losingAttempts.Count;
+            
+            if (analysis.OpponentTotalAttempts > 0)
+            {
+                analysis.OpponentSuccessRate = (double)analysis.OpponentSuccessfulFinishes / analysis.OpponentTotalAttempts * 100;
+            }
+            
+            if (winningAttempts.Any())
+            {
+                analysis.OpponentAverageDartsInWins = winningAttempts.Average();
+            }
+            
+            if (losingAttempts.Any())
+            {
+                analysis.OpponentAverageDartsInLosses = losingAttempts.Average();
+            }
+        }
+    }
+
+    private void GenerateFinishingAttemptsInsights(FinishingAttemptsAnalysis analysis, bool isComparison)
+    {
+        if (analysis.TotalAttempts == 0) return;
+
+        var startingName = GetTargetValueName(analysis.StartingValue);
+
+        // Success rate insights
+        if (analysis.SuccessRate > 80)
+        {
+            analysis.Insights.Add($"Excellent finishing rate from {startingName} ({analysis.SuccessRate:F1}%)");
+        }
+        else if (analysis.SuccessRate > 60)
+        {
+            analysis.Insights.Add($"Good finishing rate from {startingName} ({analysis.SuccessRate:F1}%)");
+        }
+        else if (analysis.SuccessRate > 40)
+        {
+            analysis.Insights.Add($"Average finishing rate from {startingName} ({analysis.SuccessRate:F1}%) - room for improvement");
+        }
+        else
+        {
+            analysis.Insights.Add($"Low finishing rate from {startingName} ({analysis.SuccessRate:F1}%) - focus on checkout practice");
+        }
+
+        // Pressure performance insights
+        if (analysis.AverageDartsInLosses > 0 && analysis.AverageDartsInWins > 0)
+        {
+            var pressureDifference = analysis.AverageDartsInLosses - analysis.AverageDartsInWins;
+            if (pressureDifference > 3)
+            {
+                analysis.Insights.Add($"Under pressure, you take {pressureDifference:F1} more darts on average - work on composure");
+            }
+            else if (pressureDifference < 1)
+            {
+                analysis.Insights.Add("Consistent finishing performance in both wins and losses - good mental strength");
+            }
+            else
+            {
+                analysis.Insights.Add($"Slightly slower finishing when losing ({pressureDifference:F1} more darts)");
+            }
+        }
+
+        // Overall performance summary
+        analysis.Insights.Add($"From {startingName}: {analysis.SuccessfulFinishes} successful finishes, {analysis.FailedAttempts} failed attempts");
+        
+        if (analysis.WinningAttemptDarts.Any())
+        {
+            analysis.Insights.Add($"Best finish: {analysis.FastestSuccessfulFinish} darts, Worst: {analysis.SlowestSuccessfulFinish} darts");
+        }
+
+        if (isComparison && analysis.OpponentTotalAttempts > 0)
+        {
+            var successRateDiff = analysis.SuccessRate - analysis.OpponentSuccessRate;
+            if (Math.Abs(successRateDiff) < 5)
+            {
+                analysis.Insights.Add($"Similar finishing rates vs {analysis.OpponentName} from {startingName}");
+            }
+            else if (successRateDiff > 0)
+            {
+                analysis.Insights.Add($"Better finishing rate from {startingName} (+{successRateDiff:F1}%) vs {analysis.OpponentName}");
+            }
+            else
+            {
+                analysis.Insights.Add($"Lower finishing rate from {startingName} ({successRateDiff:F1}%) vs {analysis.OpponentName}");
+            }
         }
     }
 }  

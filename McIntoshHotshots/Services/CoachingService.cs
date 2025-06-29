@@ -286,6 +286,12 @@ public class CoachingService : ICoachingService
                 case "get_any_player_darts_to_win_from_value":
                     return await ExecuteAnyPlayerDartsToWinFromValueFunction(argumentsJson, cancellationToken);
                 
+                case "get_finishing_attempts_from_value":
+                    return await ExecuteFinishingAttemptsFromValueFunction(argumentsJson, userId, cancellationToken);
+                
+                case "get_any_player_finishing_attempts_from_value":
+                    return await ExecuteAnyPlayerFinishingAttemptsFromValueFunction(argumentsJson, cancellationToken);
+                
                 default:
                     _logger.LogWarning("Unknown function called: {FunctionName}", functionName);
                     return $"Unknown function: {functionName}";
@@ -1073,6 +1079,128 @@ public class CoachingService : ICoachingService
         }
     }
 
+    private async Task<string> ExecuteFinishingAttemptsFromValueFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing finishing attempts from value with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var startingValue = argsDoc.RootElement.GetProperty("starting_value").GetInt32();
+            
+            string? opponentName = null;
+            if (argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentElement))
+            {
+                opponentName = opponentElement.GetString();
+            }
+
+            _logger.LogInformation("Getting finishing attempts analysis for user {UserId} vs {OpponentName} starting: {StartingValue}", userId, opponentName ?? "All Opponents", startingValue);
+            var analysis = await _performanceService.GetFinishingAttemptsFromValueAnalysisAsync(userId, startingValue, opponentName, cancellationToken);
+            
+            _logger.LogInformation("Finishing attempts analysis retrieved: TotalAttempts={TotalAttempts}, SuccessRate={SuccessRate}%", 
+                analysis.TotalAttempts, analysis.SuccessRate);
+            
+            if (analysis.TotalAttempts == 0)
+            {
+                var message = string.IsNullOrEmpty(opponentName) 
+                    ? $"No attempts found where you reached {startingValue}. You may not have reached that score in any legs yet."
+                    : $"No attempts found against {opponentName} where you reached {startingValue}. They may not exist in the database or you haven't reached that score against them.";
+                _logger.LogInformation("No attempts found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                starting_value = analysis.StartingValue,
+                opponent_name = analysis.OpponentName,
+                is_opponent_comparison = analysis.IsOpponentComparison,
+                total_attempts = analysis.TotalAttempts,
+                successful_finishes = analysis.SuccessfulFinishes,
+                failed_attempts = analysis.FailedAttempts,
+                success_rate = Math.Round(analysis.SuccessRate, 1),
+                average_darts_in_wins = analysis.AverageDartsInWins > 0 ? Math.Round(analysis.AverageDartsInWins, 1) : (double?)null,
+                average_darts_in_losses = analysis.AverageDartsInLosses > 0 ? Math.Round(analysis.AverageDartsInLosses, 1) : (double?)null,
+                fastest_successful_finish = analysis.FastestSuccessfulFinish > 0 ? analysis.FastestSuccessfulFinish : (double?)null,
+                slowest_successful_finish = analysis.SlowestSuccessfulFinish > 0 ? analysis.SlowestSuccessfulFinish : (double?)null,
+                opponent_total_attempts = analysis.IsOpponentComparison ? analysis.OpponentTotalAttempts : (int?)null,
+                opponent_success_rate = analysis.IsOpponentComparison ? Math.Round(analysis.OpponentSuccessRate, 1) : (double?)null,
+                insights = analysis.Insights,
+                summary = $"From {startingValue}: {analysis.SuccessfulFinishes}/{analysis.TotalAttempts} successful ({analysis.SuccessRate:F1}%)",
+                human_readable = analysis.IsOpponentComparison 
+                    ? $"Finishing attempts from {startingValue} vs {analysis.OpponentName}: {analysis.SuccessRate:F1}% success rate vs their {analysis.OpponentSuccessRate:F1}%"
+                    : $"Your finishing attempts from {startingValue}: {analysis.SuccessfulFinishes} wins, {analysis.FailedAttempts} losses ({analysis.SuccessRate:F1}% success rate)"
+            });
+            
+            _logger.LogInformation("Finishing attempts analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteFinishingAttemptsFromValueFunction for user {UserId}", userId);
+            return $"Error retrieving finishing attempts analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAnyPlayerFinishingAttemptsFromValueFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player finishing attempts from value with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+            var startingValue = argsDoc.RootElement.GetProperty("starting_value").GetInt32();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player finishing attempts request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting finishing attempts analysis for player: {PlayerName} starting: {StartingValue}", playerName, startingValue);
+            var analysis = await _performanceService.GetAnyPlayerFinishingAttemptsFromValueAnalysisAsync(playerName, startingValue, cancellationToken);
+            
+            _logger.LogInformation("Any player finishing attempts analysis retrieved: TotalAttempts={TotalAttempts}, SuccessRate={SuccessRate}%", 
+                analysis.TotalAttempts, analysis.SuccessRate);
+            
+            if (analysis.TotalAttempts == 0)
+            {
+                var message = $"No attempts found where {playerName} reached {startingValue}. They may not exist in the database or haven't reached that score in any legs.";
+                _logger.LogInformation("No attempts found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = playerName,
+                starting_value = analysis.StartingValue,
+                total_attempts = analysis.TotalAttempts,
+                successful_finishes = analysis.SuccessfulFinishes,
+                failed_attempts = analysis.FailedAttempts,
+                success_rate = Math.Round(analysis.SuccessRate, 1),
+                average_darts_in_wins = analysis.AverageDartsInWins > 0 ? Math.Round(analysis.AverageDartsInWins, 1) : (double?)null,
+                average_darts_in_losses = analysis.AverageDartsInLosses > 0 ? Math.Round(analysis.AverageDartsInLosses, 1) : (double?)null,
+                fastest_successful_finish = analysis.FastestSuccessfulFinish > 0 ? analysis.FastestSuccessfulFinish : (double?)null,
+                slowest_successful_finish = analysis.SlowestSuccessfulFinish > 0 ? analysis.SlowestSuccessfulFinish : (double?)null,
+                insights = analysis.Insights,
+                summary = $"{playerName} from {startingValue}: {analysis.SuccessfulFinishes}/{analysis.TotalAttempts} successful ({analysis.SuccessRate:F1}%)",
+                human_readable = $"{playerName}'s finishing attempts from {startingValue}: {analysis.SuccessRate:F1}% success rate ({analysis.SuccessfulFinishes} wins, {analysis.FailedAttempts} losses)"
+            });
+            
+            _logger.LogInformation("Any player finishing attempts analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerFinishingAttemptsFromValueFunction");
+            return $"Error retrieving finishing attempts analysis: {ex.Message}";
+        }
+    }
+
     private object[] GetAvailableTools()
     {
         return new object[]
@@ -1397,16 +1525,86 @@ public class CoachingService : ICoachingService
                         required = new[] { "player_name", "starting_value" }
                     }
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_finishing_attempts_from_value",
+                    description = "Get finishing attempts (both successful and failed) from a specific score value. This tracks ALL attempts from a certain score, including when you reach that score but lose the leg. Shows success rate and pressure performance. Use this when users ask about finishing attempts in wins AND losses.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            starting_value = new
+                            {
+                                type = "integer",
+                                description = "The score value to analyze finishing attempts from (e.g., 170, 100, 40)"
+                            },
+                            opponent_name = new
+                            {
+                                type = "string",
+                                description = "Optional: The exact name of the opponent to compare finishing attempts against. If not provided, returns overall analysis."
+                            }
+                        },
+                        required = new[] { "starting_value" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_any_player_finishing_attempts_from_value",
+                    description = "Get finishing attempts (both successful and failed) for ANY player from a specific score value. Shows their overall finishing success rate and performance under pressure from that position.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            player_name = new
+                            {
+                                type = "string",
+                                description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            },
+                            starting_value = new
+                            {
+                                type = "integer",
+                                description = "The score value to analyze finishing attempts from (e.g., 170, 100, 40)"
+                            }
+                        },
+                        required = new[] { "player_name", "starting_value" }
+                    }
+                }
             }
         };
     }
 
     private string BuildSystemPrompt(UserPerformanceData performanceData)
     {
-        var prompt = @"You are an expert darts coach. Give BRIEF, CONCISE responses (1-3 sentences max in most cases). 
+        var prompt = @"You are an expert darts coach that gives realistic, supportive, and data-informed advice. Give BRIEF, CONCISE responses (1-3 sentences max in most cases). 
 Be direct and specific. No lengthy explanations unless specifically requested.
 
 Your expertise: technique, mental game, finishing, practice routines, tactics.
+
+REALISTIC PERFORMANCE EXPECTATIONS:
+Use these benchmarks when setting goals or evaluating performance:
+- 30-40 average: 2-5% checkout rate
+- 41-50 average: 5-13% checkout rate  
+- 51-60 average: 13-20% checkout rate
+- 61-70 average: 20-24% checkout rate
+- 71-80 average: 24-35% checkout rate
+- 81-90 average: 35-40% checkout rate
+- 91-100 average: 40-45% checkout rate
+
+Most amateur players should prioritize:
+- Improving scoring consistency (fewer low-scoring turns)
+- Learning to leave good finish numbers (170, 132, 96, etc.)
+- Developing basic checkout routines from common finishes
+Always provide next-step goals that match their current level. Avoid giving pro-level advice unless stats show elite performance.
 
 CRITICAL FUNCTION CALLING RULES:
 1. NEVER respond with promises like ""Let me get..."", ""Retrieving..."", ""I'll look up..."", etc.
@@ -1446,7 +1644,8 @@ IMPORTANT:
 - Use get_first_nine_analysis for ""first 9"" questions (shows average score per 3-dart turn, not total)
 - Use get_score_down_to_value_analysis for pace questions (e.g., ""how many darts to get to 170?"")
 - Use get_average_score_per_turn_down_to_value for scoring efficiency questions (e.g., ""what's my average score per turn down to 40?"")
-- Use get_darts_to_win_from_value for finishing questions (e.g., ""how many darts to win from 170?"")
+- Use get_darts_to_win_from_value for finishing questions (e.g., ""how many darts to win from 170?"") - ONLY SUCCESSFUL FINISHES
+- Use get_finishing_attempts_from_value for ALL finishing attempts including losses (e.g., ""how many darts in my losses from 170?"")
 - Use get_any_player_* functions when asked about ANY player (not just opponents you've faced)
 - Use get_all_player_names when users want to know what players are available
 
@@ -1455,8 +1654,10 @@ EXAMPLES OF ANY PLAYER QUERIES:
 - ""How fast does Chris get to 170?"" → Use get_any_player_score_down_to_value_analysis(""Chris Eldert"", 170)
 - ""What's my average score per turn down to 40?"" → Use get_average_score_per_turn_down_to_value(40)
 - ""What's Jon's scoring average while getting to checkout range?"" → Use get_any_player_average_score_per_turn_down_to_value(""Jon Strang"", 40)
-- ""How many darts to win from 170?"" → Use get_darts_to_win_from_value(170)
-- ""How fast does Chris finish from 100?"" → Use get_any_player_darts_to_win_from_value(""Chris Eldert"", 100)
+- ""How many darts to win from 170?"" → Use get_darts_to_win_from_value(170) [ONLY successful finishes]
+- ""How fast does Chris finish from 100?"" → Use get_any_player_darts_to_win_from_value(""Chris Eldert"", 100) [ONLY successful finishes]
+- ""How many darts do I throw from 170 in my losses?"" → Use get_finishing_attempts_from_value(170) [ALL attempts, wins and losses]
+- ""What's Chris's success rate from 40?"" → Use get_any_player_finishing_attempts_from_value(""Chris Eldert"", 40) [ALL attempts, wins and losses]
 - ""What are all the players?"" → Use get_all_player_names()
 - ""Show me Jon's stats"" → Use get_any_player_performance(""Jon Strang"")
 
@@ -1470,6 +1671,49 @@ DO NOT NARRATE YOUR ACTIONS - JUST EXECUTE THE FUNCTIONS AND PRESENT RESULTS.";
             if (performanceData.Stats.TotalMatches > 0)
             {
                 prompt += $" They have a {performanceData.Stats.WinPercentage:F0}% win rate with {performanceData.Stats.AverageScore:F0} average.";
+                
+                // Add realistic expectations based on their actual average
+                var avg = performanceData.Stats.AverageScore;
+                string expectedCheckout = "";
+                string focus = "";
+                
+                if (avg <= 40)
+                {
+                    expectedCheckout = "2-5%";
+                    focus = "Focus on scoring consistency and hitting big numbers before worrying about checkout percentage.";
+                }
+                else if (avg <= 50)
+                {
+                    expectedCheckout = "5-13%";
+                    focus = "Work on leaving good setup shots and basic finishes like 32, 40, 60.";
+                }
+                else if (avg <= 60)
+                {
+                    expectedCheckout = "13-20%";
+                    focus = "Develop checkout routines and practice common finishes.";
+                }
+                else if (avg <= 70)
+                {
+                    expectedCheckout = "20-24%";
+                    focus = "Work on more advanced finishes and pressure situations.";
+                }
+                else if (avg <= 80)
+                {
+                    expectedCheckout = "24-35%";
+                    focus = "Refine finishing technique and mental game.";
+                }
+                else if (avg <= 90)
+                {
+                    expectedCheckout = "35-40%";
+                    focus = "Advanced finishing and consistency under pressure.";
+                }
+                else
+                {
+                    expectedCheckout = "40-45%";
+                    focus = "Elite-level finishing and tactical play.";
+                }
+                
+                prompt += $" At their level, a realistic checkout rate would be {expectedCheckout}. {focus}";
             }
         }
 
