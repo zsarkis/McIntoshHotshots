@@ -112,6 +112,7 @@ public class DartConnectReportParsingService : IDartConnectReportParsingService
                     }
                     else if (awayPlayer.Name.Contains(row["Column 1"]) && !homePlayer.Name.Contains(row["Column 1"]))
                     {
+                        Console.WriteLine("");
                         matchSummary.HomePlayerId = awayPlayerId;
                         matchSummary.AwayPlayerId = homePlayerId;
                         matchSummary.HomeLegsWon = Int32.Parse(row["Column 3"]);
