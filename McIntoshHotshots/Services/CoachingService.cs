@@ -1600,6 +1600,11 @@ Use these benchmarks when setting goals or evaluating performance:
 - 81-90 average: 35-40% checkout rate
 - 91-100 average: 40-45% checkout rate
 
+IMPORTANT: Compare actual checkout % to expected range:
+- If significantly ABOVE expected: Focus on SCORING improvement (bigger scores, consistency) - their finishing is already good
+- If significantly BELOW expected: Focus on FINISHING practice (checkout routines, doubles practice)
+- If within expected range: Balanced approach based on their average level
+
 Most amateur players should prioritize:
 - Improving scoring consistency (fewer low-scoring turns)
 - Learning to leave good finish numbers (170, 132, 96, etc.)
@@ -1670,50 +1675,74 @@ DO NOT NARRATE YOUR ACTIONS - JUST EXECUTE THE FUNCTIONS AND PRESENT RESULTS.";
             
             if (performanceData.Stats.TotalMatches > 0)
             {
-                prompt += $" They have a {performanceData.Stats.WinPercentage:F0}% win rate with {performanceData.Stats.AverageScore:F0} average.";
+                prompt += $" They have a {performanceData.Stats.WinPercentage:F0}% win rate with {performanceData.Stats.AverageScore:F0} average and {performanceData.Stats.CheckoutPercentage:F1}% checkout rate.";
                 
-                // Add realistic expectations based on their actual average
+                // Calculate expected checkout percentage based on average and compare to actual
                 var avg = performanceData.Stats.AverageScore;
-                string expectedCheckout = "";
-                string focus = "";
+                var actualCheckout = performanceData.Stats.CheckoutPercentage;
+                double expectedCheckoutMin = 0, expectedCheckoutMax = 0;
+                string baseExpectation = "";
+                string baseFocus = "";
                 
                 if (avg <= 40)
                 {
-                    expectedCheckout = "2-5%";
-                    focus = "Focus on scoring consistency and hitting big numbers before worrying about checkout percentage.";
+                    expectedCheckoutMin = 2; expectedCheckoutMax = 5;
+                    baseExpectation = "2-5%";
+                    baseFocus = "Focus on scoring consistency and hitting big numbers before worrying about checkout percentage.";
                 }
                 else if (avg <= 50)
                 {
-                    expectedCheckout = "5-13%";
-                    focus = "Work on leaving good setup shots and basic finishes like 32, 40, 60.";
+                    expectedCheckoutMin = 5; expectedCheckoutMax = 13;
+                    baseExpectation = "5-13%";
+                    baseFocus = "Work on leaving good setup shots and basic finishes like 32, 40, 60.";
                 }
                 else if (avg <= 60)
                 {
-                    expectedCheckout = "13-20%";
-                    focus = "Develop checkout routines and practice common finishes.";
+                    expectedCheckoutMin = 13; expectedCheckoutMax = 20;
+                    baseExpectation = "13-20%";
+                    baseFocus = "Develop checkout routines and practice common finishes.";
                 }
                 else if (avg <= 70)
                 {
-                    expectedCheckout = "20-24%";
-                    focus = "Work on more advanced finishes and pressure situations.";
+                    expectedCheckoutMin = 20; expectedCheckoutMax = 24;
+                    baseExpectation = "20-24%";
+                    baseFocus = "Work on more advanced finishes and pressure situations.";
                 }
                 else if (avg <= 80)
                 {
-                    expectedCheckout = "24-35%";
-                    focus = "Refine finishing technique and mental game.";
+                    expectedCheckoutMin = 24; expectedCheckoutMax = 35;
+                    baseExpectation = "24-35%";
+                    baseFocus = "Refine finishing technique and mental game.";
                 }
                 else if (avg <= 90)
                 {
-                    expectedCheckout = "35-40%";
-                    focus = "Advanced finishing and consistency under pressure.";
+                    expectedCheckoutMin = 35; expectedCheckoutMax = 40;
+                    baseExpectation = "35-40%";
+                    baseFocus = "Advanced finishing and consistency under pressure.";
                 }
                 else
                 {
-                    expectedCheckout = "40-45%";
-                    focus = "Elite-level finishing and tactical play.";
+                    expectedCheckoutMin = 40; expectedCheckoutMax = 45;
+                    baseExpectation = "40-45%";
+                    baseFocus = "Elite-level finishing and tactical play.";
                 }
                 
-                prompt += $" At their level, a realistic checkout rate would be {expectedCheckout}. {focus}";
+                // Check if they're finishing significantly above or below expected level
+                var expectedCheckoutMid = (expectedCheckoutMin + expectedCheckoutMax) / 2;
+                var checkoutDifference = actualCheckout - expectedCheckoutMid;
+                
+                if (actualCheckout > expectedCheckoutMax + 3) // Significantly above expected
+                {
+                    prompt += $" IMPORTANT: Their {actualCheckout:F1}% checkout rate is significantly above the expected {baseExpectation} for their average. This suggests they are good finishers but struggle with scoring consistency. Focus advice on improving their average score to match their finishing ability rather than checkout practice. They should work on: hitting bigger scores (60+, 100+), consistent scoring, and reducing low-scoring turns. Their finishing is already a strength.";
+                }
+                else if (actualCheckout < expectedCheckoutMin - 2) // Significantly below expected  
+                {
+                    prompt += $" Their {actualCheckout:F1}% checkout rate is below the expected {baseExpectation} for their average. {baseFocus} They need to work on finishing technique and checkout routines.";
+                }
+                else // Within expected range
+                {
+                    prompt += $" Their {actualCheckout:F1}% checkout rate is appropriate for their {avg:F0} average (expected: {baseExpectation}). {baseFocus}";
+                }
             }
         }
 
