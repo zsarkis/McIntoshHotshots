@@ -293,6 +293,12 @@ public class CoachingService : ICoachingService
                 case "get_any_player_finishing_attempts_from_value":
                     return await ExecuteAnyPlayerFinishingAttemptsFromValueFunction(argumentsJson, cancellationToken);
                 
+                case "get_best_leg_analysis":
+                    return await ExecuteBestLegAnalysisFunction(argumentsJson, userId, cancellationToken);
+                
+                case "get_any_player_best_leg_analysis":
+                    return await ExecuteAnyPlayerBestLegAnalysisFunction(argumentsJson, cancellationToken);
+                
                 default:
                     _logger.LogWarning("Unknown function called: {FunctionName}", functionName);
                     return $"Unknown function: {functionName}";
@@ -1202,6 +1208,128 @@ public class CoachingService : ICoachingService
         }
     }
 
+    private async Task<string> ExecuteBestLegAnalysisFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing best leg analysis with args: {Args}", argumentsJson);
+            
+            string? opponentName = null;
+            
+            // Parse arguments if provided
+            if (!string.IsNullOrEmpty(argumentsJson) && argumentsJson.Trim() != "{}")
+            {
+                using var argsDoc = JsonDocument.Parse(argumentsJson);
+                if (argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentNameElement))
+                {
+                    opponentName = opponentNameElement.GetString();
+                }
+            }
+
+            _logger.LogInformation("Getting best leg analysis for user {UserId} vs {OpponentName}", userId, opponentName ?? "All Opponents");
+            var analysis = await _performanceService.GetBestLegAnalysisAsync(userId, opponentName, cancellationToken);
+            
+            _logger.LogInformation("Best leg analysis retrieved: TotalLegs={TotalLegs}, BestLegDarts={BestLegDarts}, AverageDarts={AverageDarts}", 
+                analysis.TotalLegsWon, analysis.BestLegDarts, analysis.AverageDartsPerLeg);
+            
+            if (analysis.TotalLegsWon == 0)
+            {
+                var message = string.IsNullOrEmpty(opponentName) 
+                    ? "No winning legs found for best leg analysis. You may not have won any legs yet."
+                    : $"No winning legs found against {opponentName} for best leg analysis. They may not exist in the database or you haven't won any legs against them.";
+                _logger.LogInformation("No winning legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response with best leg analysis
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                opponent_name = analysis.OpponentName,
+                is_opponent_comparison = analysis.IsOpponentComparison,
+                best_leg_darts = analysis.BestLegDarts,
+                worst_leg_darts = analysis.WorstLegDarts,
+                average_darts_per_leg = Math.Round(analysis.AverageDartsPerLeg, 1),
+                total_legs_won = analysis.TotalLegsWon,
+                highest_finish = analysis.HighestFinish,
+                opponent_best_leg_darts = analysis.IsOpponentComparison ? analysis.OpponentBestLegDarts : (int?)null,
+                opponent_worst_leg_darts = analysis.IsOpponentComparison ? analysis.OpponentWorstLegDarts : (int?)null,
+                opponent_average_darts_per_leg = analysis.IsOpponentComparison ? Math.Round(analysis.OpponentAverageDartsPerLeg, 1) : (double?)null,
+                opponent_total_legs_won = analysis.IsOpponentComparison ? analysis.OpponentTotalLegsWon : (int?)null,
+                winner = analysis.IsOpponentComparison ? analysis.Winner : null,
+                difference = analysis.IsOpponentComparison ? Math.Round(analysis.Difference, 1) : (double?)null,
+                insights = analysis.Insights,
+                summary = analysis.IsOpponentComparison 
+                    ? $"Best leg vs {analysis.OpponentName}: You {analysis.BestLegDarts} darts, they {analysis.OpponentBestLegDarts} darts"
+                    : $"Your best leg: {analysis.BestLegDarts} darts, average: {analysis.AverageDartsPerLeg:F1} darts across {analysis.TotalLegsWon} winning legs",
+                human_readable = analysis.IsOpponentComparison 
+                    ? $"Best leg comparison vs {analysis.OpponentName}: Your {analysis.BestLegDarts} vs their {analysis.OpponentBestLegDarts} darts"
+                    : $"Your best leg performance: {analysis.BestLegDarts} darts (different from highest finish: {analysis.HighestFinish} points)"
+            });
+            
+            _logger.LogInformation("Best leg analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteBestLegAnalysisFunction for user {UserId}", userId);
+            return $"Error retrieving best leg analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAnyPlayerBestLegAnalysisFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player best leg analysis with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player best leg analysis request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting best leg analysis for player: {PlayerName}", playerName);
+            var analysis = await _performanceService.GetAnyPlayerBestLegAnalysisAsync(playerName, cancellationToken);
+            
+            _logger.LogInformation("Any player best leg analysis retrieved: TotalLegs={TotalLegs}, BestLegDarts={BestLegDarts}", 
+                analysis.TotalLegsWon, analysis.BestLegDarts);
+            
+            if (analysis.TotalLegsWon == 0)
+            {
+                var message = $"No winning legs found for {playerName} for best leg analysis. They may not exist in the database or have no winning legs.";
+                _logger.LogInformation("No winning legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = playerName,
+                best_leg_darts = analysis.BestLegDarts,
+                worst_leg_darts = analysis.WorstLegDarts,
+                average_darts_per_leg = Math.Round(analysis.AverageDartsPerLeg, 1),
+                total_legs_won = analysis.TotalLegsWon,
+                highest_finish = analysis.HighestFinish,
+                insights = analysis.Insights,
+                summary = $"{playerName} best leg: {analysis.BestLegDarts} darts, average: {analysis.AverageDartsPerLeg:F1} darts across {analysis.TotalLegsWon} winning legs",
+                human_readable = $"{playerName}'s best leg performance: {analysis.BestLegDarts} darts (different from highest finish: {analysis.HighestFinish} points)"
+            });
+            
+            _logger.LogInformation("Any player best leg analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerBestLegAnalysisFunction");
+            return $"Error retrieving best leg analysis: {ex.Message}";
+        }
+    }
+
     private object[] GetAvailableTools()
     {
         return new object[]
@@ -1580,6 +1708,50 @@ public class CoachingService : ICoachingService
                         required = new[] { "player_name", "starting_value" }
                     }
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_best_leg_analysis",
+                    description = "Get best leg analysis - the leg completed in the FEWEST DARTS (most efficient leg). This is different from highest finish. Use this when users ask about 'best leg', 'fastest leg', or 'most efficient leg'.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            opponent_name = new
+                            {
+                                type = "string",
+                                description = "Optional: The exact name of the opponent to compare best leg performance against. If not provided, returns overall best leg analysis."
+                            }
+                        },
+                        required = new string[] { }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_any_player_best_leg_analysis",
+                    description = "Get best leg analysis for ANY player in the system - the leg they completed in the FEWEST DARTS. This is different from highest finish.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            player_name = new
+                            {
+                                type = "string",
+                                description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            }
+                        },
+                        required = new[] { "player_name" }
+                    }
+                }
             }
         };
     }
@@ -1652,8 +1824,16 @@ IMPORTANT:
 - Use get_average_score_per_turn_down_to_value for scoring efficiency questions (e.g., ""what's my average score per turn down to 40?"")
 - Use get_darts_to_win_from_value for finishing questions (e.g., ""how many darts to win from 170?"") - ONLY SUCCESSFUL FINISHES
 - Use get_finishing_attempts_from_value for ALL finishing attempts including losses (e.g., ""how many darts in my losses from 170?"")
+- Use get_best_leg_analysis for ""best leg"" questions - this finds the leg completed in FEWEST DARTS (most efficient)
 - Use get_any_player_* functions when asked about ANY player (not just opponents you've faced)
 - Use get_all_player_names when users want to know what players are available
+
+CRITICAL DISTINCTION - BEST LEG vs HIGHEST FINISH:
+- ""Best leg"" = the leg completed in the FEWEST DARTS (e.g., 15 darts to finish 501)
+- ""Highest finish"" = the highest checkout score in any single turn (e.g., 170 points in one turn)
+- These are COMPLETELY DIFFERENT metrics - do NOT confuse them!
+- When users ask ""what is my best leg?"" they want the leg with fewest darts, NOT the highest finish
+- When users ask ""what is my highest finish?"" they want the biggest checkout score
 
 EXAMPLES OF ANY PLAYER QUERIES:
 - ""What is JR's overall first 9?"" → Use get_any_player_first_nine_analysis(""JR Edwards"")

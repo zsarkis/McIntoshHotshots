@@ -1981,4 +1981,293 @@ public class UserPerformanceService : IUserPerformanceService
             }
         }
     }
+
+    public async Task<BestLegAnalysis> GetBestLegAnalysisAsync(string userId, string? opponentName = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var player = await _playerRepo.GetPlayerByUserIdAsync(userId);
+            if (player == null)
+            {
+                return new BestLegAnalysis();
+            }
+
+            var analysis = new BestLegAnalysis
+            {
+                OpponentName = opponentName,
+                IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
+            };
+
+            // Get all legs where this player won
+            var allLegs = await _legRepo.GetLegsAsync();
+            var playerWinningLegs = allLegs.Where(l => l.WinnerId == player.Id).ToList();
+
+            if (analysis.IsOpponentComparison && !string.IsNullOrEmpty(opponentName))
+            {
+                // Find opponent and filter to head-to-head matches
+                var allPlayers = await _playerRepo.GetPlayersAsync();
+                var opponent = allPlayers.FirstOrDefault(p => 
+                    string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+                if (opponent == null)
+                {
+                    return analysis;
+                }
+
+                // Get matches between these players
+                var playerMatches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+                var headToHeadMatches = playerMatches.Where(m => 
+                    (m.HomePlayerId == player.Id && m.AwayPlayerId == opponent.Id) ||
+                    (m.HomePlayerId == opponent.Id && m.AwayPlayerId == player.Id)).ToList();
+
+                if (!headToHeadMatches.Any())
+                {
+                    return analysis;
+                }
+
+                // Filter to head-to-head legs
+                var h2hPlayerWins = playerWinningLegs.Where(l => headToHeadMatches.Any(m => m.Id == l.MatchId)).ToList();
+                var h2hOpponentWins = allLegs.Where(l => l.WinnerId == opponent.Id && headToHeadMatches.Any(m => m.Id == l.MatchId)).ToList();
+
+                // Calculate dart counts for both players
+                analysis.AllLegDartCounts = CalculateBestLegDartCounts(h2hPlayerWins, headToHeadMatches, player.Id);
+                analysis.OpponentAllLegDartCounts = CalculateBestLegDartCounts(h2hOpponentWins, headToHeadMatches, opponent.Id);
+
+                // Calculate statistics for both players
+                if (analysis.AllLegDartCounts.Any())
+                {
+                    analysis.BestLegDarts = analysis.AllLegDartCounts.Min();
+                    analysis.WorstLegDarts = analysis.AllLegDartCounts.Max();
+                    analysis.AverageDartsPerLeg = analysis.AllLegDartCounts.Average();
+                    analysis.TotalLegsWon = analysis.AllLegDartCounts.Count;
+                }
+
+                if (analysis.OpponentAllLegDartCounts.Any())
+                {
+                    analysis.OpponentBestLegDarts = analysis.OpponentAllLegDartCounts.Min();
+                    analysis.OpponentWorstLegDarts = analysis.OpponentAllLegDartCounts.Max();
+                    analysis.OpponentAverageDartsPerLeg = analysis.OpponentAllLegDartCounts.Average();
+                    analysis.OpponentTotalLegsWon = analysis.OpponentAllLegDartCounts.Count;
+                }
+
+                // Calculate comparison metrics
+                if (analysis.AllLegDartCounts.Any() && analysis.OpponentAllLegDartCounts.Any())
+                {
+                    analysis.Difference = analysis.AverageDartsPerLeg - analysis.OpponentAverageDartsPerLeg;
+                    analysis.Winner = analysis.Difference < 0 ? "You" : 
+                                     analysis.Difference > 0 ? opponentName : "Tied";
+                }
+
+                // Calculate highest finish for context (from leg details)
+                var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+                var h2hLegDetails = playerLegDetails.Where(ld => h2hPlayerWins.Any(l => l.Id == ld.LegId)).ToList();
+                var checkouts = h2hLegDetails.Where(ld => 
+                    ld.ScoreRemainingBeforeThrow.HasValue && 
+                    ld.ScoreRemainingBeforeThrow == ld.Score).ToList();
+                analysis.HighestFinish = checkouts.Any() ? checkouts.Max(ld => ld.Score) : 0;
+
+                GenerateBestLegInsights(analysis, true);
+            }
+            else
+            {
+                // Overall analysis (no specific opponent)
+                var allMatches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+                analysis.AllLegDartCounts = CalculateBestLegDartCounts(playerWinningLegs, allMatches, player.Id);
+                
+                if (analysis.AllLegDartCounts.Any())
+                {
+                    analysis.BestLegDarts = analysis.AllLegDartCounts.Min();
+                    analysis.WorstLegDarts = analysis.AllLegDartCounts.Max();
+                    analysis.AverageDartsPerLeg = analysis.AllLegDartCounts.Average();
+                    analysis.TotalLegsWon = analysis.AllLegDartCounts.Count;
+                }
+
+                // Calculate highest finish for context
+                var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+                var checkouts = playerLegDetails.Where(ld => 
+                    ld.ScoreRemainingBeforeThrow.HasValue && 
+                    ld.ScoreRemainingBeforeThrow == ld.Score).ToList();
+                analysis.HighestFinish = checkouts.Any() ? checkouts.Max(ld => ld.Score) : 0;
+
+                GenerateBestLegInsights(analysis, false);
+            }
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving best leg analysis for user: {UserId} vs {OpponentName}", userId, opponentName);
+            return new BestLegAnalysis { OpponentName = opponentName };
+        }
+    }
+
+    public async Task<BestLegAnalysis> GetAnyPlayerBestLegAnalysisAsync(string playerName, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Find player by name
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new BestLegAnalysis { OpponentName = playerName };
+            }
+
+            var analysis = new BestLegAnalysis
+            {
+                OpponentName = playerName,
+                IsOpponentComparison = false
+            };
+
+            // Get all winning legs for this player
+            var allLegs = await _legRepo.GetLegsAsync();
+            var playerWinningLegs = allLegs.Where(l => l.WinnerId == player.Id).ToList();
+            var allMatches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
+
+            analysis.AllLegDartCounts = CalculateBestLegDartCounts(playerWinningLegs, allMatches, player.Id);
+            
+            if (analysis.AllLegDartCounts.Any())
+            {
+                analysis.BestLegDarts = analysis.AllLegDartCounts.Min();
+                analysis.WorstLegDarts = analysis.AllLegDartCounts.Max();
+                analysis.AverageDartsPerLeg = analysis.AllLegDartCounts.Average();
+                analysis.TotalLegsWon = analysis.AllLegDartCounts.Count;
+            }
+
+            // Calculate highest finish for context
+            var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+            var checkouts = playerLegDetails.Where(ld => 
+                ld.ScoreRemainingBeforeThrow.HasValue && 
+                ld.ScoreRemainingBeforeThrow == ld.Score).ToList();
+            analysis.HighestFinish = checkouts.Any() ? checkouts.Max(ld => ld.Score) : 0;
+
+            GenerateBestLegInsights(analysis, false);
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving best leg analysis for player: {PlayerName}", playerName);
+            return new BestLegAnalysis { OpponentName = playerName };
+        }
+    }
+
+    private List<int> CalculateBestLegDartCounts(List<LegModel> winningLegs, List<MatchSummaryModel> matches, int playerId)
+    {
+        var dartCounts = new List<int>();
+
+        foreach (var leg in winningLegs)
+        {
+            // Find the match for this leg to determine if player was home or away
+            var match = matches.FirstOrDefault(m => m.Id == leg.MatchId);
+            if (match == null) continue;
+
+            int dartCount = 0;
+            
+            // Determine dart count based on player position in the match
+            if (match.HomePlayerId == playerId)
+            {
+                dartCount = leg.HomePlayerDartsThrown;
+            }
+            else if (match.AwayPlayerId == playerId)
+            {
+                dartCount = leg.AwayPlayerDartsThrown;
+            }
+
+            if (dartCount > 0)
+            {
+                dartCounts.Add(dartCount);
+            }
+        }
+
+        return dartCounts;
+    }
+
+    private void GenerateBestLegInsights(BestLegAnalysis analysis, bool isComparison)
+    {
+        if (analysis.TotalLegsWon == 0) return;
+
+        if (isComparison && analysis.OpponentTotalLegsWon > 0)
+        {
+            // Comparison insights
+            if (analysis.BestLegDarts < analysis.OpponentBestLegDarts)
+            {
+                analysis.Insights.Add($"Your best leg ({analysis.BestLegDarts} darts) is better than {analysis.OpponentName}'s best ({analysis.OpponentBestLegDarts} darts)");
+            }
+            else if (analysis.BestLegDarts > analysis.OpponentBestLegDarts)
+            {
+                analysis.Insights.Add($"{analysis.OpponentName}'s best leg ({analysis.OpponentBestLegDarts} darts) is better than yours ({analysis.BestLegDarts} darts)");
+            }
+            else
+            {
+                analysis.Insights.Add($"Both players have the same best leg performance ({analysis.BestLegDarts} darts)");
+            }
+
+            if (Math.Abs(analysis.Difference) < 3)
+            {
+                analysis.Insights.Add($"Very similar average leg efficiency - difference of only {Math.Abs(analysis.Difference):F1} darts");
+            }
+            else if (analysis.Difference < -3)
+            {
+                analysis.Insights.Add($"You're more efficient on average by {Math.Abs(analysis.Difference):F1} darts per leg");
+            }
+            else if (analysis.Difference > 3)
+            {
+                analysis.Insights.Add($"{analysis.OpponentName} is more efficient on average by {analysis.Difference:F1} darts per leg");
+            }
+        }
+        else
+        {
+            // Overall insights
+            if (analysis.BestLegDarts <= 15)
+            {
+                analysis.Insights.Add($"Outstanding best leg performance - {analysis.BestLegDarts} darts is exceptional");
+            }
+            else if (analysis.BestLegDarts <= 18)
+            {
+                analysis.Insights.Add($"Excellent best leg - {analysis.BestLegDarts} darts shows strong finishing ability");
+            }
+            else if (analysis.BestLegDarts <= 21)
+            {
+                analysis.Insights.Add($"Good best leg performance - {analysis.BestLegDarts} darts is solid");
+            }
+            else if (analysis.BestLegDarts > 30)
+            {
+                analysis.Insights.Add($"Best leg of {analysis.BestLegDarts} darts shows room for improvement in leg efficiency");
+            }
+
+            if (analysis.AverageDartsPerLeg <= 21)
+            {
+                analysis.Insights.Add($"Strong average leg efficiency - {analysis.AverageDartsPerLeg:F1} darts per leg is very good");
+            }
+            else if (analysis.AverageDartsPerLeg > 30)
+            {
+                analysis.Insights.Add($"Average of {analysis.AverageDartsPerLeg:F1} darts per leg suggests focus on scoring consistency");
+            }
+        }
+
+        // Consistency insights
+        if (analysis.AllLegDartCounts.Count >= 3)
+        {
+            var range = analysis.WorstLegDarts - analysis.BestLegDarts;
+            if (range <= 9)
+            {
+                analysis.Insights.Add("Very consistent leg performance - small range between best and worst");
+            }
+            else if (range > 20)
+            {
+                analysis.Insights.Add("Inconsistent leg performance - wide range suggests working on consistency");
+            }
+        }
+
+        // Clarify the difference between best leg and highest finish
+        if (analysis.HighestFinish > 0)
+        {
+            analysis.Insights.Add($"Note: Your best leg ({analysis.BestLegDarts} darts) is different from your highest finish ({analysis.HighestFinish} points)");
+        }
+
+        analysis.Insights.Add($"Analyzed {analysis.TotalLegsWon} winning legs");
+    }
 }  

@@ -20,6 +20,28 @@ public interface IUserPerformanceService
     Task<ScoreDownToValueAnalysis> GetAnyPlayerDartsToWinFromValueAnalysisAsync(string playerName, int startingValue, CancellationToken cancellationToken = default);
     Task<FinishingAttemptsAnalysis> GetFinishingAttemptsFromValueAnalysisAsync(string userId, int startingValue, string? opponentName = null, CancellationToken cancellationToken = default);
     Task<FinishingAttemptsAnalysis> GetAnyPlayerFinishingAttemptsFromValueAnalysisAsync(string playerName, int startingValue, CancellationToken cancellationToken = default);
+    Task<BestLegAnalysis> GetBestLegAnalysisAsync(string userId, string? opponentName = null, CancellationToken cancellationToken = default);
+    Task<BestLegAnalysis> GetAnyPlayerBestLegAnalysisAsync(string playerName, CancellationToken cancellationToken = default);
+}
+
+public class BestLegAnalysis
+{
+    public string? OpponentName { get; set; }
+    public int BestLegDarts { get; set; }
+    public int WorstLegDarts { get; set; }
+    public double AverageDartsPerLeg { get; set; }
+    public int TotalLegsWon { get; set; }
+    public int HighestFinish { get; set; } // This is separate from best leg - it's the highest checkout in any leg
+    public List<string> Insights { get; set; } = new();
+    public List<int> AllLegDartCounts { get; set; } = new(); // All winning legs in darts
+    public bool IsOpponentComparison { get; set; }
+    public int OpponentBestLegDarts { get; set; }
+    public int OpponentWorstLegDarts { get; set; }
+    public double OpponentAverageDartsPerLeg { get; set; }
+    public int OpponentTotalLegsWon { get; set; }
+    public List<int> OpponentAllLegDartCounts { get; set; } = new();
+    public string Winner { get; set; } = "";
+    public double Difference { get; set; }
 }
 
 public class DetailedLegAnalysis
@@ -66,10 +88,10 @@ public class ScoreDownToValueAnalysis
     public double Difference { get; set; }
     public List<string> Insights { get; set; } = new();
     public bool IsOpponentComparison { get; set; }
-    public double PlayerFastestDarts { get; set; }
-    public double PlayerSlowestDarts { get; set; }
-    public double OpponentFastestDarts { get; set; }
-    public double OpponentSlowestDarts { get; set; }
+    public int PlayerFastestDarts { get; set; }
+    public int PlayerSlowestDarts { get; set; }
+    public int OpponentFastestDarts { get; set; }
+    public int OpponentSlowestDarts { get; set; }
 }
 
 public class AverageScorePerTurnAnalysis
