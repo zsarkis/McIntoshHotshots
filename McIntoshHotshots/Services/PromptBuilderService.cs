@@ -86,6 +86,8 @@ IMPORTANT:
 - Use get_best_leg_analysis for ""best leg"" questions - this finds the leg completed in FEWEST DARTS (most efficient)
 - Use get_any_player_* functions when asked about ANY player (not just opponents you've faced)
 - Use get_all_player_names when users want to know what players are available
+- Use get_darts_in_score_range when users ask about darts taken in a specific score range (e.g., ""How many darts from 455 to 230?"")
+- Use get_average_score_per_turn_in_range when users ask about 3DA or scoring efficiency in a specific range (e.g., ""What's my 3DA between 400-220?"")
 
 CRITICAL DISTINCTION - BEST LEG vs HIGHEST FINISH:
 - ""Best leg"" = the leg completed in the FEWEST DARTS (e.g., 15 darts to finish 501)
@@ -105,6 +107,14 @@ EXAMPLES OF ANY PLAYER QUERIES:
 - ""What's Chris's success rate from 40?"" → Use get_any_player_finishing_attempts_from_value(""Chris Eldert"", 40) [ALL attempts, wins and losses]
 - ""What are all the players?"" → Use get_all_player_names()
 - ""Show me Jon's stats"" → Use get_any_player_performance(""Jon Strang"")
+
+EXAMPLES OF SCORE RANGE QUERIES:
+- ""How many darts from 455 to 230?"" → Use get_darts_in_score_range(455, 230)
+- ""What's my 3DA between 400-220?"" → Use get_average_score_per_turn_in_range(400, 220)
+- ""How fast does Chris go from 350 to 170?"" → Use get_any_player_darts_in_score_range(""Chris Eldert"", 350, 170)
+- ""What's Jon's scoring average between 300-150?"" → Use get_any_player_average_score_per_turn_in_range(""Jon Strang"", 300, 150)
+- ""Compare my darts from 400 to 200 vs Chris"" → Use get_darts_in_score_range(400, 200, ""Chris Eldert"")
+- ""My 3DA in the 300-170 range vs Jon"" → Use get_average_score_per_turn_in_range(300, 170, ""Jon Strang"")
 
 DO NOT NARRATE YOUR ACTIONS - JUST EXECUTE THE FUNCTIONS AND PRESENT RESULTS.";
     }

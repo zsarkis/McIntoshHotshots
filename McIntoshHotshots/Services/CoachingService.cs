@@ -91,7 +91,19 @@ public class CoachingService : ICoachingService
                 ExecuteBestLegAnalysisFunction(argumentsJson!, userId!, cancellationToken),
             
             ["get_any_player_best_leg_analysis"] = (argumentsJson, userId, cancellationToken) => 
-                ExecuteAnyPlayerBestLegAnalysisFunction(argumentsJson!, cancellationToken)
+                ExecuteAnyPlayerBestLegAnalysisFunction(argumentsJson!, cancellationToken),
+            
+            ["get_darts_in_score_range"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteDartsInScoreRangeFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_any_player_darts_in_score_range"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerDartsInScoreRangeFunction(argumentsJson!, cancellationToken),
+            
+            ["get_average_score_per_turn_in_range"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAverageScorePerTurnInRangeFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_any_player_average_score_per_turn_in_range"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerAverageScorePerTurnInRangeFunction(argumentsJson!, cancellationToken)
         };
     }
 
@@ -1342,6 +1354,252 @@ public class CoachingService : ICoachingService
         {
             _logger.LogError(ex, "Error in ExecuteAnyPlayerBestLegAnalysisFunction");
             return $"Error retrieving best leg analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteDartsInScoreRangeFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing darts in score range with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var startScore = argsDoc.RootElement.GetProperty("start_score").GetInt32();
+            var endScore = argsDoc.RootElement.GetProperty("end_score").GetInt32();
+            
+            string? opponentName = null;
+            if (argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentElement))
+            {
+                opponentName = opponentElement.GetString();
+            }
+
+            _logger.LogInformation("Getting darts in score range analysis for user {UserId} vs {OpponentName} range: {StartScore}-{EndScore}", userId, opponentName ?? "All Opponents", startScore, endScore);
+            var analysis = await _performanceService.GetDartsInScoreRangeAnalysisAsync(userId, startScore, endScore, opponentName, cancellationToken);
+            
+            _logger.LogInformation("Darts in score range analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageDarts);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = string.IsNullOrEmpty(opponentName) 
+                    ? $"No leg data found for darts in range {startScore}-{endScore} analysis. You may not have any legs that passed through this score range."
+                    : $"No leg data found against {opponentName} for darts in range {startScore}-{endScore} analysis. They may not exist in the database or you haven't played legs that passed through this range against them.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                start_score = analysis.StartScore,
+                end_score = analysis.EndScore,
+                opponent_name = analysis.OpponentName,
+                is_opponent_comparison = analysis.IsOpponentComparison,
+                player_average_darts = Math.Round(analysis.PlayerAverageDarts, 1),
+                opponent_average_darts = analysis.IsOpponentComparison ? Math.Round(analysis.OpponentAverageDarts, 1) : (double?)null,
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                winner = analysis.IsOpponentComparison ? analysis.Winner : null,
+                difference = analysis.IsOpponentComparison ? Math.Round(analysis.Difference, 1) : (double?)null,
+                player_fastest_darts = analysis.PlayerFastestDarts,
+                player_slowest_darts = analysis.PlayerSlowestDarts,
+                opponent_fastest_darts = analysis.IsOpponentComparison ? analysis.OpponentFastestDarts : (int?)null,
+                opponent_slowest_darts = analysis.IsOpponentComparison ? analysis.OpponentSlowestDarts : (int?)null,
+                insights = analysis.Insights,
+                summary = analysis.IsOpponentComparison 
+                    ? $"Darts from {startScore} to {endScore}: You average {analysis.PlayerAverageDarts:F1}, they average {analysis.OpponentAverageDarts:F1} (difference: {(analysis.Difference > 0 ? "+" : "")}{analysis.Difference:F1})"
+                    : $"Average darts from {startScore} to {endScore}: {analysis.PlayerAverageDarts:F1} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = analysis.IsOpponentComparison 
+                    ? $"Darts in range {startScore}-{endScore} vs {analysis.OpponentName}: Your {analysis.PlayerAverageDarts:F1} vs their {analysis.OpponentAverageDarts:F1}"
+                    : $"Your average darts to go from {startScore} to {endScore}: {analysis.PlayerAverageDarts:F1}"
+            });
+            
+            _logger.LogInformation("Darts in score range analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteDartsInScoreRangeFunction for user {UserId}", userId);
+            return $"Error retrieving darts in score range analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAnyPlayerDartsInScoreRangeFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player darts in score range with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+            var startScore = argsDoc.RootElement.GetProperty("start_score").GetInt32();
+            var endScore = argsDoc.RootElement.GetProperty("end_score").GetInt32();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player darts in score range request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting darts in score range analysis for player: {PlayerName} range: {StartScore}-{EndScore}", playerName, startScore, endScore);
+            var analysis = await _performanceService.GetAnyPlayerDartsInScoreRangeAnalysisAsync(playerName, startScore, endScore, cancellationToken);
+            
+            _logger.LogInformation("Any player darts in score range analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageDarts);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = $"No leg data found for {playerName} for darts in range {startScore}-{endScore} analysis. They may not exist in the database or have no legs that passed through this score range.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = playerName,
+                start_score = analysis.StartScore,
+                end_score = analysis.EndScore,
+                average_darts = Math.Round(analysis.PlayerAverageDarts, 1),
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                fastest_darts = analysis.PlayerFastestDarts,
+                slowest_darts = analysis.PlayerSlowestDarts,
+                insights = analysis.Insights,
+                summary = $"{playerName} averages {analysis.PlayerAverageDarts:F1} darts from {startScore} to {endScore} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = $"{playerName} takes an average of {analysis.PlayerAverageDarts:F1} darts to go from {startScore} to {endScore}"
+            });
+            
+            _logger.LogInformation("Any player darts in score range analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerDartsInScoreRangeFunction");
+            return $"Error retrieving darts in score range analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAverageScorePerTurnInRangeFunction(string argumentsJson, string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing average score per turn in range with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var startScore = argsDoc.RootElement.GetProperty("start_score").GetInt32();
+            var endScore = argsDoc.RootElement.GetProperty("end_score").GetInt32();
+            
+            string? opponentName = null;
+            if (argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentElement))
+            {
+                opponentName = opponentElement.GetString();
+            }
+
+            _logger.LogInformation("Getting average score per turn in range analysis for user {UserId} vs {OpponentName} range: {StartScore}-{EndScore}", userId, opponentName ?? "All Opponents", startScore, endScore);
+            var analysis = await _performanceService.GetAverageScorePerTurnInRangeAnalysisAsync(userId, startScore, endScore, opponentName, cancellationToken);
+            
+            _logger.LogInformation("Average score per turn in range analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageScorePerTurn);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = string.IsNullOrEmpty(opponentName) 
+                    ? $"No leg data found for average score per turn in range {startScore}-{endScore} analysis. You may not have any legs that passed through this score range."
+                    : $"No leg data found against {opponentName} for average score per turn in range {startScore}-{endScore} analysis. They may not exist in the database or you haven't played legs that passed through this range against them.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                start_score = analysis.StartScore,
+                end_score = analysis.EndScore,
+                opponent_name = analysis.OpponentName,
+                is_opponent_comparison = analysis.IsOpponentComparison,
+                player_average_score_per_turn = Math.Round(analysis.PlayerAverageScorePerTurn, 1),
+                opponent_average_score_per_turn = analysis.IsOpponentComparison ? Math.Round(analysis.OpponentAverageScorePerTurn, 1) : (double?)null,
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                winner = analysis.IsOpponentComparison ? analysis.Winner : null,
+                difference = analysis.IsOpponentComparison ? Math.Round(analysis.Difference, 1) : (double?)null,
+                player_best_leg_average = analysis.PlayerBestLegAverage,
+                player_worst_leg_average = analysis.PlayerWorstLegAverage,
+                opponent_best_leg_average = analysis.IsOpponentComparison ? analysis.OpponentBestLegAverage : (double?)null,
+                opponent_worst_leg_average = analysis.IsOpponentComparison ? analysis.OpponentWorstLegAverage : (double?)null,
+                insights = analysis.Insights,
+                summary = analysis.IsOpponentComparison 
+                    ? $"3DA in range {startScore}-{endScore}: You average {analysis.PlayerAverageScorePerTurn:F1}, they average {analysis.OpponentAverageScorePerTurn:F1} (difference: {(analysis.Difference > 0 ? "+" : "")}{analysis.Difference:F1})"
+                    : $"Average 3DA in range {startScore}-{endScore}: {analysis.PlayerAverageScorePerTurn:F1} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = analysis.IsOpponentComparison 
+                    ? $"3DA in range {startScore}-{endScore} vs {analysis.OpponentName}: Your {analysis.PlayerAverageScorePerTurn:F1} vs their {analysis.OpponentAverageScorePerTurn:F1}"
+                    : $"Your average score per turn in range {startScore}-{endScore}: {analysis.PlayerAverageScorePerTurn:F1} points"
+            });
+            
+            _logger.LogInformation("Average score per turn in range analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAverageScorePerTurnInRangeFunction for user {UserId}", userId);
+            return $"Error retrieving average score per turn in range analysis: {ex.Message}";
+        }
+    }
+
+    private async Task<string> ExecuteAnyPlayerAverageScorePerTurnInRangeFunction(string argumentsJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Executing any player average score per turn in range with args: {Args}", argumentsJson);
+            
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            var playerName = argsDoc.RootElement.GetProperty("player_name").GetString();
+            var startScore = argsDoc.RootElement.GetProperty("start_score").GetInt32();
+            var endScore = argsDoc.RootElement.GetProperty("end_score").GetInt32();
+
+            if (string.IsNullOrEmpty(playerName))
+            {
+                _logger.LogWarning("No player name provided in any player average score per turn in range request");
+                return "No player name provided";
+            }
+
+            _logger.LogInformation("Getting average score per turn in range analysis for player: {PlayerName} range: {StartScore}-{EndScore}", playerName, startScore, endScore);
+            var analysis = await _performanceService.GetAnyPlayerAverageScorePerTurnInRangeAnalysisAsync(playerName, startScore, endScore, cancellationToken);
+            
+            _logger.LogInformation("Any player average score per turn in range analysis retrieved: TotalLegs={TotalLegs}, PlayerAverage={PlayerAverage}", 
+                analysis.TotalLegsAnalyzed, analysis.PlayerAverageScorePerTurn);
+            
+            if (analysis.TotalLegsAnalyzed == 0)
+            {
+                var message = $"No leg data found for {playerName} for average score per turn in range {startScore}-{endScore} analysis. They may not exist in the database or have no legs that passed through this score range.";
+                _logger.LogInformation("No legs found: {Message}", message);
+                return message;
+            }
+
+            // Create comprehensive response
+            var result = JsonSerializer.Serialize(new
+            {
+                status = "success",
+                player_name = playerName,
+                start_score = analysis.StartScore,
+                end_score = analysis.EndScore,
+                average_score_per_turn = Math.Round(analysis.PlayerAverageScorePerTurn, 1),
+                total_legs_analyzed = analysis.TotalLegsAnalyzed,
+                best_leg_average = analysis.PlayerBestLegAverage,
+                worst_leg_average = analysis.PlayerWorstLegAverage,
+                insights = analysis.Insights,
+                summary = $"{playerName} averages {analysis.PlayerAverageScorePerTurn:F1} points per turn in range {startScore}-{endScore} across {analysis.TotalLegsAnalyzed} legs",
+                human_readable = $"{playerName} averages {analysis.PlayerAverageScorePerTurn:F1} points per turn when scoring from {startScore} to {endScore}"
+            });
+            
+            _logger.LogInformation("Any player average score per turn in range analysis completed successfully with result length: {Length}", result.Length);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecuteAnyPlayerAverageScorePerTurnInRangeFunction");
+            return $"Error retrieving average score per turn in range analysis: {ex.Message}";
         }
     }
 
