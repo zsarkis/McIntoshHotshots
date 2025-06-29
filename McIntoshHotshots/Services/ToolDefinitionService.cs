@@ -391,6 +391,126 @@ public class ToolDefinitionService : IToolDefinitionService
                         Required = new[] { "player_name" }
                     }
                 }
+            },
+            new ToolDefinition
+            {
+                Function = new FunctionDefinition
+                {
+                    Name = "get_darts_in_score_range",
+                    Description = "Analyze how many darts it takes to go from one score to another (e.g., from 455 to 230, or from 400 to 170). Use this when users ask about darts taken in a specific score range.",
+                    Parameters = new ParameterDefinition
+                    {
+                        Properties = new Dictionary<string, PropertyDefinition>
+                        {
+                            ["start_score"] = new PropertyDefinition
+                            {
+                                Type = "integer",
+                                Description = "The starting score of the range (e.g., 455, 400)"
+                            },
+                            ["end_score"] = new PropertyDefinition
+                            {
+                                Type = "integer",
+                                Description = "The ending score of the range (e.g., 230, 170)"
+                            },
+                            ["opponent_name"] = new PropertyDefinition
+                            {
+                                Type = "string",
+                                Description = "Optional: The exact name of the opponent to compare range performance against. If not provided, returns overall analysis."
+                            }
+                        },
+                        Required = new[] { "start_score", "end_score" }
+                    }
+                }
+            },
+            new ToolDefinition
+            {
+                Function = new FunctionDefinition
+                {
+                    Name = "get_any_player_darts_in_score_range",
+                    Description = "Analyze how many darts it takes for ANY player to go from one score to another. Use this when users ask about any player's performance in a specific score range.",
+                    Parameters = new ParameterDefinition
+                    {
+                        Properties = new Dictionary<string, PropertyDefinition>
+                        {
+                            ["player_name"] = new PropertyDefinition
+                            {
+                                Type = "string",
+                                Description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            },
+                            ["start_score"] = new PropertyDefinition
+                            {
+                                Type = "integer",
+                                Description = "The starting score of the range (e.g., 455, 400)"
+                            },
+                            ["end_score"] = new PropertyDefinition
+                            {
+                                Type = "integer",
+                                Description = "The ending score of the range (e.g., 230, 170)"
+                            }
+                        },
+                        Required = new[] { "player_name", "start_score", "end_score" }
+                    }
+                }
+            },
+            new ToolDefinition
+            {
+                Function = new FunctionDefinition
+                {
+                    Name = "get_average_score_per_turn_in_range",
+                    Description = "Get average SCORE per 3-dart turn in a specific score range (e.g., between 400-220 points). This shows 3DA (3-dart average) within a specific scoring window. Use this when users ask about scoring efficiency or 3DA in a particular range.",
+                    Parameters = new ParameterDefinition
+                    {
+                        Properties = new Dictionary<string, PropertyDefinition>
+                        {
+                            ["start_score"] = new PropertyDefinition
+                            {
+                                Type = "integer",
+                                Description = "The starting score of the range (e.g., 400, 350)"
+                            },
+                            ["end_score"] = new PropertyDefinition
+                            {
+                                Type = "integer",
+                                Description = "The ending score of the range (e.g., 220, 170)"
+                            },
+                            ["opponent_name"] = new PropertyDefinition
+                            {
+                                Type = "string",
+                                Description = "Optional: The exact name of the opponent to compare range scoring against. If not provided, returns overall analysis."
+                            }
+                        },
+                        Required = new[] { "start_score", "end_score" }
+                    }
+                }
+            },
+            new ToolDefinition
+            {
+                Function = new FunctionDefinition
+                {
+                    Name = "get_any_player_average_score_per_turn_in_range",
+                    Description = "Get average SCORE per 3-dart turn for ANY player in a specific score range. Shows their 3DA within a particular scoring window.",
+                    Parameters = new ParameterDefinition
+                    {
+                        Properties = new Dictionary<string, PropertyDefinition>
+                        {
+                            ["player_name"] = new PropertyDefinition
+                            {
+                                Type = "string",
+                                Description = "The exact name of any player to analyze (e.g., 'JR Edwards', 'Chris Eldert')"
+                            },
+                            ["start_score"] = new PropertyDefinition
+                            {
+                                Type = "integer",
+                                Description = "The starting score of the range (e.g., 400, 350)"
+                            },
+                            ["end_score"] = new PropertyDefinition
+                            {
+                                Type = "integer",
+                                Description = "The ending score of the range (e.g., 220, 170)"
+                            }
+                        },
+                        Required = new[] { "player_name", "start_score", "end_score" }
+                    }
+                }
             }
         };
     }

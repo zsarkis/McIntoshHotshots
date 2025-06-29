@@ -2187,87 +2187,527 @@ public class UserPerformanceService : IUserPerformanceService
 
     private void GenerateBestLegInsights(BestLegAnalysis analysis, bool isComparison)
     {
-        if (analysis.TotalLegsWon == 0) return;
+        analysis.Insights.Clear();
 
-        if (isComparison && analysis.OpponentTotalLegsWon > 0)
+        if (isComparison)
         {
-            // Comparison insights
             if (analysis.BestLegDarts < analysis.OpponentBestLegDarts)
             {
-                analysis.Insights.Add($"Your best leg ({analysis.BestLegDarts} darts) is better than {analysis.OpponentName}'s best ({analysis.OpponentBestLegDarts} darts)");
+                analysis.Insights.Add($"Your best leg ({analysis.BestLegDarts} darts) is faster than your opponent's best ({analysis.OpponentBestLegDarts} darts)");
             }
             else if (analysis.BestLegDarts > analysis.OpponentBestLegDarts)
             {
-                analysis.Insights.Add($"{analysis.OpponentName}'s best leg ({analysis.OpponentBestLegDarts} darts) is better than yours ({analysis.BestLegDarts} darts)");
+                analysis.Insights.Add($"Your opponent's best leg ({analysis.OpponentBestLegDarts} darts) is faster than yours ({analysis.BestLegDarts} darts)");
             }
             else
             {
-                analysis.Insights.Add($"Both players have the same best leg performance ({analysis.BestLegDarts} darts)");
+                analysis.Insights.Add($"Both you and your opponent have the same best leg time ({analysis.BestLegDarts} darts)");
             }
 
-            if (Math.Abs(analysis.Difference) < 3)
+            var avgDiff = analysis.AverageDartsPerLeg - analysis.OpponentAverageDartsPerLeg;
+            if (Math.Abs(avgDiff) > 2)
             {
-                analysis.Insights.Add($"Very similar average leg efficiency - difference of only {Math.Abs(analysis.Difference):F1} darts");
+                if (avgDiff < 0)
+                {
+                    analysis.Insights.Add($"You're consistently faster on average ({analysis.AverageDartsPerLeg:F1} vs {analysis.OpponentAverageDartsPerLeg:F1} darts per leg)");
+                }
+                else
+                {
+                    analysis.Insights.Add($"Your opponent is consistently faster on average ({analysis.OpponentAverageDartsPerLeg:F1} vs {analysis.AverageDartsPerLeg:F1} darts per leg)");
+                }
             }
-            else if (analysis.Difference < -3)
+
+            // Consistency analysis
+            var yourRange = analysis.WorstLegDarts - analysis.BestLegDarts;
+            var opponentRange = analysis.OpponentWorstLegDarts - analysis.OpponentBestLegDarts;
+            
+            if (yourRange < opponentRange - 3)
             {
-                analysis.Insights.Add($"You're more efficient on average by {Math.Abs(analysis.Difference):F1} darts per leg");
+                analysis.Insights.Add($"You're more consistent (range: {yourRange} darts) than your opponent (range: {opponentRange} darts)");
             }
-            else if (analysis.Difference > 3)
+            else if (yourRange > opponentRange + 3)
             {
-                analysis.Insights.Add($"{analysis.OpponentName} is more efficient on average by {analysis.Difference:F1} darts per leg");
+                analysis.Insights.Add($"Your opponent is more consistent (range: {opponentRange} darts) than you (range: {yourRange} darts)");
             }
         }
         else
         {
-            // Overall insights
+            // Overall performance insights
             if (analysis.BestLegDarts <= 15)
             {
-                analysis.Insights.Add($"Outstanding best leg performance - {analysis.BestLegDarts} darts is exceptional");
+                analysis.Insights.Add($"Excellent best leg performance - {analysis.BestLegDarts} darts is elite level");
             }
             else if (analysis.BestLegDarts <= 18)
             {
-                analysis.Insights.Add($"Excellent best leg - {analysis.BestLegDarts} darts shows strong finishing ability");
+                analysis.Insights.Add($"Very good best leg performance - {analysis.BestLegDarts} darts shows strong potential");
             }
             else if (analysis.BestLegDarts <= 21)
             {
                 analysis.Insights.Add($"Good best leg performance - {analysis.BestLegDarts} darts is solid");
             }
-            else if (analysis.BestLegDarts > 30)
+            else
             {
-                analysis.Insights.Add($"Best leg of {analysis.BestLegDarts} darts shows room for improvement in leg efficiency");
+                analysis.Insights.Add($"Your best leg of {analysis.BestLegDarts} darts has room for improvement");
             }
 
-            if (analysis.AverageDartsPerLeg <= 21)
-            {
-                analysis.Insights.Add($"Strong average leg efficiency - {analysis.AverageDartsPerLeg:F1} darts per leg is very good");
-            }
-            else if (analysis.AverageDartsPerLeg > 30)
-            {
-                analysis.Insights.Add($"Average of {analysis.AverageDartsPerLeg:F1} darts per leg suggests focus on scoring consistency");
-            }
-        }
-
-        // Consistency insights
-        if (analysis.AllLegDartCounts.Count >= 3)
-        {
+            // Consistency insights
             var range = analysis.WorstLegDarts - analysis.BestLegDarts;
             if (range <= 9)
             {
-                analysis.Insights.Add("Very consistent leg performance - small range between best and worst");
+                analysis.Insights.Add("Very consistent performance across your winning legs");
             }
-            else if (range > 20)
+            else if (range <= 15)
             {
-                analysis.Insights.Add("Inconsistent leg performance - wide range suggests working on consistency");
+                analysis.Insights.Add("Good consistency in your winning legs");
+            }
+            else
+            {
+                analysis.Insights.Add("Work on consistency - there's a big gap between your best and worst winning legs");
+            }
+
+            // Volume insights
+            if (analysis.TotalLegsWon >= 50)
+            {
+                analysis.Insights.Add($"Strong sample size with {analysis.TotalLegsWon} winning legs analyzed");
+            }
+            else if (analysis.TotalLegsWon >= 20)
+            {
+                analysis.Insights.Add($"Good sample size with {analysis.TotalLegsWon} winning legs analyzed");
+            }
+            else
+            {
+                analysis.Insights.Add($"Limited data with only {analysis.TotalLegsWon} winning legs - more games needed for better analysis");
+            }
+        }
+    }
+
+    public async Task<ScoreRangeAnalysis> GetDartsInScoreRangeAnalysisAsync(string userId, int startScore, int endScore, string? opponentName = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var player = await _playerRepo.GetPlayerByUserIdAsync(userId);
+            if (player == null)
+            {
+                return new ScoreRangeAnalysis { StartScore = startScore, EndScore = endScore, OpponentName = opponentName };
+            }
+
+            return await GetDartsInScoreRangeAnalysisInternalAsync(player, startScore, endScore, opponentName, $"user {userId}", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetDartsInScoreRangeAnalysisAsync for user {UserId}", userId);
+            return new ScoreRangeAnalysis { StartScore = startScore, EndScore = endScore, OpponentName = opponentName };
+        }
+    }
+
+    public async Task<ScoreRangeAnalysis> GetAnyPlayerDartsInScoreRangeAnalysisAsync(string playerName, int startScore, int endScore, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new ScoreRangeAnalysis { StartScore = startScore, EndScore = endScore };
+            }
+
+            return await GetDartsInScoreRangeAnalysisInternalAsync(player, startScore, endScore, null, $"player {playerName}", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetAnyPlayerDartsInScoreRangeAnalysisAsync for player {PlayerName}", playerName);
+            return new ScoreRangeAnalysis { StartScore = startScore, EndScore = endScore };
+        }
+    }
+
+    public async Task<AverageScorePerTurnRangeAnalysis> GetAverageScorePerTurnInRangeAnalysisAsync(string userId, int startScore, int endScore, string? opponentName = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var player = await _playerRepo.GetPlayerByUserIdAsync(userId);
+            if (player == null)
+            {
+                return new AverageScorePerTurnRangeAnalysis { StartScore = startScore, EndScore = endScore, OpponentName = opponentName };
+            }
+
+            return await GetAverageScorePerTurnInRangeAnalysisInternalAsync(player, startScore, endScore, opponentName, $"user {userId}", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetAverageScorePerTurnInRangeAnalysisAsync for user {UserId}", userId);
+            return new AverageScorePerTurnRangeAnalysis { StartScore = startScore, EndScore = endScore, OpponentName = opponentName };
+        }
+    }
+
+    public async Task<AverageScorePerTurnRangeAnalysis> GetAnyPlayerAverageScorePerTurnInRangeAnalysisAsync(string playerName, int startScore, int endScore, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var player = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, playerName, StringComparison.OrdinalIgnoreCase));
+
+            if (player == null)
+            {
+                return new AverageScorePerTurnRangeAnalysis { StartScore = startScore, EndScore = endScore };
+            }
+
+            return await GetAverageScorePerTurnInRangeAnalysisInternalAsync(player, startScore, endScore, null, $"player {playerName}", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetAnyPlayerAverageScorePerTurnInRangeAnalysisAsync for player {PlayerName}", playerName);
+            return new AverageScorePerTurnRangeAnalysis { StartScore = startScore, EndScore = endScore };
+        }
+    }
+
+    private async Task<ScoreRangeAnalysis> GetDartsInScoreRangeAnalysisInternalAsync(
+        PlayerModel player, 
+        int startScore, 
+        int endScore, 
+        string? opponentName, 
+        string logContext, 
+        CancellationToken cancellationToken)
+    {
+        var analysis = new ScoreRangeAnalysis
+        {
+            StartScore = startScore,
+            EndScore = endScore,
+            OpponentName = opponentName,
+            IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
+        };
+
+        // Get player's leg details and calculate dart counts
+        var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+        var playerDartCounts = CalculateDartsInScoreRange(playerLegDetails, startScore, endScore);
+
+        if (playerDartCounts.Any())
+        {
+            analysis.PlayerAverageDarts = playerDartCounts.Average();
+            analysis.PlayerFastestDarts = playerDartCounts.Min();
+            analysis.PlayerSlowestDarts = playerDartCounts.Max();
+            analysis.PlayerDartCounts = playerDartCounts;
+            analysis.TotalLegsAnalyzed = playerDartCounts.Count;
+        }
+
+        // Handle opponent comparison if requested
+        if (analysis.IsOpponentComparison)
+        {
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var opponent = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+            if (opponent != null)
+            {
+                var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
+                var opponentDartCounts = CalculateDartsInScoreRange(opponentLegDetails, startScore, endScore);
+
+                if (opponentDartCounts.Any())
+                {
+                    analysis.OpponentAverageDarts = opponentDartCounts.Average();
+                    analysis.OpponentFastestDarts = opponentDartCounts.Min();
+                    analysis.OpponentSlowestDarts = opponentDartCounts.Max();
+                    analysis.OpponentDartCounts = opponentDartCounts;
+
+                    analysis.Difference = analysis.PlayerAverageDarts - analysis.OpponentAverageDarts;
+                    analysis.Winner = analysis.Difference < 0 ? "Player" : "Opponent";
+                }
             }
         }
 
-        // Clarify the difference between best leg and highest finish
-        if (analysis.HighestFinish > 0)
+        GenerateScoreRangeInsights(analysis);
+        return analysis;
+    }
+
+    private async Task<AverageScorePerTurnRangeAnalysis> GetAverageScorePerTurnInRangeAnalysisInternalAsync(
+        PlayerModel player, 
+        int startScore, 
+        int endScore, 
+        string? opponentName, 
+        string logContext, 
+        CancellationToken cancellationToken)
+    {
+        var analysis = new AverageScorePerTurnRangeAnalysis
         {
-            analysis.Insights.Add($"Note: Your best leg ({analysis.BestLegDarts} darts) is different from your highest finish ({analysis.HighestFinish} points)");
+            StartScore = startScore,
+            EndScore = endScore,
+            OpponentName = opponentName,
+            IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
+        };
+
+        // Get player's leg details and calculate score averages
+        var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+        var playerScoreAverages = CalculateAverageScorePerTurnInRange(playerLegDetails, startScore, endScore);
+
+        if (playerScoreAverages.Any())
+        {
+            analysis.PlayerAverageScorePerTurn = playerScoreAverages.Average();
+            analysis.PlayerBestLegAverage = playerScoreAverages.Max();
+            analysis.PlayerWorstLegAverage = playerScoreAverages.Min();
+            analysis.PlayerScorePerTurnAverages = playerScoreAverages;
+            analysis.TotalLegsAnalyzed = playerScoreAverages.Count;
         }
 
-        analysis.Insights.Add($"Analyzed {analysis.TotalLegsWon} winning legs");
+        // Handle opponent comparison if requested
+        if (analysis.IsOpponentComparison)
+        {
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var opponent = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+            if (opponent != null)
+            {
+                var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
+                var opponentScoreAverages = CalculateAverageScorePerTurnInRange(opponentLegDetails, startScore, endScore);
+
+                if (opponentScoreAverages.Any())
+                {
+                    analysis.OpponentAverageScorePerTurn = opponentScoreAverages.Average();
+                    analysis.OpponentBestLegAverage = opponentScoreAverages.Max();
+                    analysis.OpponentWorstLegAverage = opponentScoreAverages.Min();
+                    analysis.OpponentScorePerTurnAverages = opponentScoreAverages;
+
+                    analysis.Difference = analysis.PlayerAverageScorePerTurn - analysis.OpponentAverageScorePerTurn;
+                    analysis.Winner = analysis.Difference > 0 ? "Player" : "Opponent";
+                }
+            }
+        }
+
+        GenerateAverageScorePerTurnRangeInsights(analysis);
+        return analysis;
+    }
+
+    private List<int> CalculateDartsInScoreRange(List<LegDetailModel> legDetails, int startScore, int endScore)
+    {
+        var dartCounts = new List<int>();
+
+        // Group by leg ID to analyze each leg separately
+        var legGroups = legDetails.GroupBy(ld => ld.LegId);
+
+        foreach (var legGroup in legGroups)
+        {
+            var legData = legGroup.OrderBy(ld => ld.Id).ToList();
+            
+            // Find the dart count from startScore to endScore
+            int? startDartIndex = null;
+            int? endDartIndex = null;
+            int dartCount = 0;
+
+            foreach (var detail in legData)
+            {
+                dartCount += detail.DartsUsed;
+                
+                if (detail.ScoreRemainingBeforeThrow.HasValue)
+                {
+                    var scoreBeforeThrow = detail.ScoreRemainingBeforeThrow.Value;
+                    var scoreAfterThrow = scoreBeforeThrow - detail.Score;
+
+                    // Check if we crossed the start score
+                    if (startDartIndex == null && scoreBeforeThrow >= startScore && scoreAfterThrow < startScore)
+                    {
+                        startDartIndex = dartCount;
+                    }
+
+                    // Check if we crossed the end score
+                    if (startDartIndex.HasValue && endDartIndex == null && scoreBeforeThrow >= endScore && scoreAfterThrow < endScore)
+                    {
+                        endDartIndex = dartCount;
+                        break;
+                    }
+                }
+            }
+
+            // If we found both start and end points, calculate the dart count for this range
+            if (startDartIndex.HasValue && endDartIndex.HasValue)
+            {
+                var rangeCount = endDartIndex.Value - startDartIndex.Value;
+                if (rangeCount > 0)
+                {
+                    dartCounts.Add(rangeCount);
+                }
+            }
+        }
+
+        return dartCounts;
+    }
+
+    private List<double> CalculateAverageScorePerTurnInRange(List<LegDetailModel> legDetails, int startScore, int endScore)
+    {
+        var legAverages = new List<double>();
+
+        // Group by leg ID to analyze each leg separately
+        var legGroups = legDetails.GroupBy(ld => ld.LegId);
+
+        foreach (var legGroup in legGroups)
+        {
+            var legData = legGroup.OrderBy(ld => ld.Id).ToList();
+            var rangeScores = new List<int>();
+
+            foreach (var detail in legData)
+            {
+                if (detail.ScoreRemainingBeforeThrow.HasValue)
+                {
+                    var scoreBeforeThrow = detail.ScoreRemainingBeforeThrow.Value;
+                    var scoreAfterThrow = scoreBeforeThrow - detail.Score;
+
+                    // Include scores that are within our range
+                    if (scoreBeforeThrow <= startScore && scoreAfterThrow >= endScore)
+                    {
+                        rangeScores.Add(detail.Score);
+                    }
+                }
+            }
+
+            // Calculate average for this leg if we have scores in the range
+            if (rangeScores.Any())
+            {
+                legAverages.Add(rangeScores.Average());
+            }
+        }
+
+        return legAverages;
+    }
+
+    private void GenerateScoreRangeInsights(ScoreRangeAnalysis analysis)
+    {
+        analysis.Insights.Clear();
+
+        if (analysis.IsOpponentComparison && analysis.OpponentAverageDarts > 0)
+        {
+            if (Math.Abs(analysis.Difference) < 1)
+            {
+                analysis.Insights.Add($"Very close performance - both average around {analysis.PlayerAverageDarts:F1} darts in this range");
+            }
+            else if (analysis.Difference < 0)
+            {
+                analysis.Insights.Add($"You're faster by {Math.Abs(analysis.Difference):F1} darts on average in this range");
+            }
+            else
+            {
+                analysis.Insights.Add($"Your opponent is faster by {analysis.Difference:F1} darts on average in this range");
+            }
+
+            // Range consistency comparison
+            var playerRange = analysis.PlayerSlowestDarts - analysis.PlayerFastestDarts;
+            var opponentRange = analysis.OpponentSlowestDarts - analysis.OpponentFastestDarts;
+            
+            if (playerRange < opponentRange - 2)
+            {
+                analysis.Insights.Add($"You're more consistent in this range (variation: {playerRange} darts vs {opponentRange} darts)");
+            }
+            else if (playerRange > opponentRange + 2)
+            {
+                analysis.Insights.Add($"Your opponent is more consistent in this range (variation: {opponentRange} darts vs {playerRange} darts)");
+            }
+        }
+        else
+        {
+            // Overall performance insights
+            var range = analysis.StartScore - analysis.EndScore;
+            var efficiency = (double)range / analysis.PlayerAverageDarts;
+
+            if (efficiency > 25)
+            {
+                analysis.Insights.Add($"Excellent efficiency in this range - {efficiency:F1} points per dart");
+            }
+            else if (efficiency > 20)
+            {
+                analysis.Insights.Add($"Good efficiency in this range - {efficiency:F1} points per dart");
+            }
+            else if (efficiency > 15)
+            {
+                analysis.Insights.Add($"Decent efficiency in this range - {efficiency:F1} points per dart");
+            }
+            else
+            {
+                analysis.Insights.Add($"Room for improvement in this range - {efficiency:F1} points per dart");
+            }
+
+            // Consistency insights
+            var variation = analysis.PlayerSlowestDarts - analysis.PlayerFastestDarts;
+            if (variation <= 3)
+            {
+                analysis.Insights.Add("Very consistent performance in this score range");
+            }
+            else if (variation <= 6)
+            {
+                analysis.Insights.Add("Good consistency in this score range");
+            }
+            else
+            {
+                analysis.Insights.Add($"Inconsistent performance - {variation} dart variation between best and worst");
+            }
+        }
+    }
+
+    private void GenerateAverageScorePerTurnRangeInsights(AverageScorePerTurnRangeAnalysis analysis)
+    {
+        analysis.Insights.Clear();
+
+        if (analysis.IsOpponentComparison && analysis.OpponentAverageScorePerTurn > 0)
+        {
+            if (Math.Abs(analysis.Difference) < 2)
+            {
+                analysis.Insights.Add($"Very similar scoring in this range - both average around {analysis.PlayerAverageScorePerTurn:F1} points per turn");
+            }
+            else if (analysis.Difference > 0)
+            {
+                analysis.Insights.Add($"You score {analysis.Difference:F1} more points per turn on average in this range");
+            }
+            else
+            {
+                analysis.Insights.Add($"Your opponent scores {Math.Abs(analysis.Difference):F1} more points per turn on average in this range");
+            }
+
+            // Consistency comparison
+            var playerRange = analysis.PlayerBestLegAverage - analysis.PlayerWorstLegAverage;
+            var opponentRange = analysis.OpponentBestLegAverage - analysis.OpponentWorstLegAverage;
+            
+            if (playerRange < opponentRange - 5)
+            {
+                analysis.Insights.Add($"You're more consistent in this range (variation: {playerRange:F1} vs {opponentRange:F1})");
+            }
+            else if (playerRange > opponentRange + 5)
+            {
+                analysis.Insights.Add($"Your opponent is more consistent in this range (variation: {opponentRange:F1} vs {playerRange:F1})");
+            }
+        }
+        else
+        {
+            // Overall performance insights
+            if (analysis.PlayerAverageScorePerTurn >= 60)
+            {
+                analysis.Insights.Add($"Excellent scoring in this range - {analysis.PlayerAverageScorePerTurn:F1} average per turn");
+            }
+            else if (analysis.PlayerAverageScorePerTurn >= 45)
+            {
+                analysis.Insights.Add($"Good scoring in this range - {analysis.PlayerAverageScorePerTurn:F1} average per turn");
+            }
+            else if (analysis.PlayerAverageScorePerTurn >= 30)
+            {
+                analysis.Insights.Add($"Decent scoring in this range - {analysis.PlayerAverageScorePerTurn:F1} average per turn");
+            }
+            else
+            {
+                analysis.Insights.Add($"Room for improvement in this range - {analysis.PlayerAverageScorePerTurn:F1} average per turn");
+            }
+
+            // Consistency insights
+            var range = analysis.PlayerBestLegAverage - analysis.PlayerWorstLegAverage;
+            if (range <= 10)
+            {
+                analysis.Insights.Add("Very consistent scoring in this range across different legs");
+            }
+            else if (range <= 20)
+            {
+                analysis.Insights.Add("Good consistency in this scoring range");
+            }
+            else
+            {
+                analysis.Insights.Add($"Inconsistent scoring - {range:F1} point variation between best and worst legs");
+            }
+        }
     }
 }  

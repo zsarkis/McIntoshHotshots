@@ -22,6 +22,10 @@ public interface IUserPerformanceService
     Task<FinishingAttemptsAnalysis> GetAnyPlayerFinishingAttemptsFromValueAnalysisAsync(string playerName, int startingValue, CancellationToken cancellationToken = default);
     Task<BestLegAnalysis> GetBestLegAnalysisAsync(string userId, string? opponentName = null, CancellationToken cancellationToken = default);
     Task<BestLegAnalysis> GetAnyPlayerBestLegAnalysisAsync(string playerName, CancellationToken cancellationToken = default);
+    Task<ScoreRangeAnalysis> GetDartsInScoreRangeAnalysisAsync(string userId, int startScore, int endScore, string? opponentName = null, CancellationToken cancellationToken = default);
+    Task<ScoreRangeAnalysis> GetAnyPlayerDartsInScoreRangeAnalysisAsync(string playerName, int startScore, int endScore, CancellationToken cancellationToken = default);
+    Task<AverageScorePerTurnRangeAnalysis> GetAverageScorePerTurnInRangeAnalysisAsync(string userId, int startScore, int endScore, string? opponentName = null, CancellationToken cancellationToken = default);
+    Task<AverageScorePerTurnRangeAnalysis> GetAnyPlayerAverageScorePerTurnInRangeAnalysisAsync(string playerName, int startScore, int endScore, CancellationToken cancellationToken = default);
 }
 
 public class BestLegAnalysis
@@ -135,6 +139,46 @@ public class FinishingAttemptsAnalysis
     public double OpponentSuccessRate { get; set; }
     public double OpponentAverageDartsInWins { get; set; }
     public double OpponentAverageDartsInLosses { get; set; }
+}
+
+public class ScoreRangeAnalysis
+{
+    public string? OpponentName { get; set; }
+    public int StartScore { get; set; }
+    public int EndScore { get; set; }
+    public double PlayerAverageDarts { get; set; }
+    public double OpponentAverageDarts { get; set; }
+    public int TotalLegsAnalyzed { get; set; }
+    public List<int> PlayerDartCounts { get; set; } = new();
+    public List<int> OpponentDartCounts { get; set; } = new();
+    public string Winner { get; set; } = "";
+    public double Difference { get; set; }
+    public List<string> Insights { get; set; } = new();
+    public bool IsOpponentComparison { get; set; }
+    public int PlayerFastestDarts { get; set; }
+    public int PlayerSlowestDarts { get; set; }
+    public int OpponentFastestDarts { get; set; }
+    public int OpponentSlowestDarts { get; set; }
+}
+
+public class AverageScorePerTurnRangeAnalysis
+{
+    public string? OpponentName { get; set; }
+    public int StartScore { get; set; }
+    public int EndScore { get; set; }
+    public double PlayerAverageScorePerTurn { get; set; }
+    public double OpponentAverageScorePerTurn { get; set; }
+    public int TotalLegsAnalyzed { get; set; }
+    public List<double> PlayerScorePerTurnAverages { get; set; } = new(); // Average score per turn for each leg
+    public List<double> OpponentScorePerTurnAverages { get; set; } = new(); // Average score per turn for each leg
+    public string Winner { get; set; } = "";
+    public double Difference { get; set; }
+    public List<string> Insights { get; set; } = new();
+    public bool IsOpponentComparison { get; set; }
+    public double PlayerBestLegAverage { get; set; }
+    public double PlayerWorstLegAverage { get; set; }
+    public double OpponentBestLegAverage { get; set; }
+    public double OpponentWorstLegAverage { get; set; }
 }
 
 public class UserPerformanceData
