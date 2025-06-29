@@ -225,7 +225,10 @@
     {
         // Simple formatting for demonstration
         content = content.Replace("\n", "<br/>");
-        content = content.Replace("**", "<strong>").Replace("**", "</strong>");
+        
+        // Properly handle bold formatting with ** pairs
+        content = System.Text.RegularExpressions.Regex.Replace(content, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
+        
         content = content.Replace("• ", "• ");
         return content;
     }

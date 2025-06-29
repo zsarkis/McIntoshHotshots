@@ -117,7 +117,7 @@ public class FinishingAttemptsAnalysis
 
 public class UserPerformanceData
 {
-    public PlayerModel Player { get; set; }
+    public PlayerModel? Player { get; set; }
     public List<MatchSummaryModel> RecentMatches { get; set; } = new();
     public List<LegDetailModel> RecentLegDetails { get; set; } = new();
     public PerformanceStats Stats { get; set; } = new();
