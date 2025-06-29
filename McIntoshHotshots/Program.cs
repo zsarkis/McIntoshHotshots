@@ -60,7 +60,10 @@ builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
 
 // Add HttpClient registration to the services container
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("OpenAI", client => 
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 

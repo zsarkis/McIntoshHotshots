@@ -7,18 +7,18 @@ namespace McIntoshHotshots.Services;
 
 public class CoachingService : ICoachingService
 {
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly IUserPerformanceService _performanceService;
     private readonly ILogger<CoachingService> _logger;
 
     public CoachingService(
-        HttpClient httpClient, 
+        IHttpClientFactory httpClientFactory, 
         IConfiguration configuration, 
         IUserPerformanceService performanceService,
         ILogger<CoachingService> logger)
     {
-        _httpClient = httpClient;
+        _httpClientFactory = httpClientFactory;
         _configuration = configuration;
         _performanceService = performanceService;
         _logger = logger;
@@ -102,7 +102,8 @@ public class CoachingService : ICoachingService
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
-            using var response = await _httpClient.SendAsync(request, combinedCts.Token);
+            using var httpClient = _httpClientFactory.CreateClient("OpenAI");
+            using var response = await httpClient.SendAsync(request, combinedCts.Token);
             
             if (!response.IsSuccessStatusCode)
             {
