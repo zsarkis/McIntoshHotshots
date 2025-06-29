@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddRazorPages(); // Add Razor Pages services
+builder.Services.AddControllers(); // Add API controllers
 
 // Configure the database context
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
@@ -42,6 +43,11 @@ builder.Services.AddScoped<ITournamentService, TournamentService>();
 builder.Services.AddScoped<IDartConnectReportParsingService, DartConnectReportParsingService>();
 builder.Services.AddScoped<IEloCalculationService, EloCalculationService>();
 builder.Services.AddScoped<ILiveMatchService, LiveMatchService>();
+builder.Services.AddScoped<IUserPerformanceService, UserPerformanceService>();
+builder.Services.AddScoped<IPromptBuilderService, PromptBuilderService>();
+builder.Services.AddScoped<IToolDefinitionService, ToolDefinitionService>();
+builder.Services.AddScoped<ICoachingService, CoachingService>();
+builder.Services.AddScoped<CoachingDebugService>();
 
 // Add Identity services
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
@@ -54,6 +60,12 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
 // Add authentication and authorization
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
+
+// Add HttpClient registration to the services container
+builder.Services.AddHttpClient("OpenAI", client => 
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
@@ -96,6 +108,9 @@ app.UseAuthorization();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Map API controllers
+app.MapControllers();
 
 // Map Razor Pages for Identity UI
 app.MapRazorPages();

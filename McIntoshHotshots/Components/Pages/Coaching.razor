@@ -1,0 +1,268 @@
+@page "/coaching"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using McIntoshHotshots.Services
+@attribute [Authorize]
+@inject ICoachingService CoachingService
+@inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Coaching - McIntosh Hotshots</PageTitle>
+
+<div class="coaching-container">
+    <div class="coaching-header">
+        <h1 class="coaching-title">
+            <span class="bi bi-chat-dots-fill"></span>
+            AI Darts Coach
+        </h1>
+        <p class="coaching-subtitle">Get personalized coaching tips and strategies to improve your darts game</p>
+    </div>
+
+    <div class="chat-container">
+        <div class="messages-container" @ref="messagesContainer" data-scroll-container>
+            @if (messages.Count == 0)
+            {
+                <div class="welcome-message">
+                    <div class="welcome-card">
+                        @if (isAuthenticated)
+                        {
+                            <h3>Welcome @userName! 🎯</h3>
+                            <h4>Your Personal AI Darts Coach</h4>
+                            <p>I'm your personal darts coach, and I have access to your match history and performance data to provide tailored advice. I can help you with:</p>
+                            <ul>
+                                <li><strong>Personalized technique analysis</strong> based on your playing style</li>
+                                <li><strong>Custom practice routines</strong> targeting your weak areas</li>
+                                <li><strong>Performance insights</strong> from your recent matches</li>
+                                <li><strong>Finishing strategies</strong> based on your checkout statistics</li>
+                                <li><strong>Mental game coaching</strong> for competitive situations</li>
+                            </ul>
+                            <p>Ask me anything about your game, and I'll provide advice based on your actual performance data!</p>
+                        }
+                        else
+                        {
+                            <h3>Access Restricted</h3>
+                            <p>Please <a href="/Identity/Account/Login">log in</a> to access your personal AI darts coach.</p>
+                        }
+                    </div>
+                </div>
+            }
+            
+            @foreach (var message in messages)
+            {
+                <div class="message @(message.IsUser ? "user-message" : "ai-message")">
+                    <div class="message-avatar">
+                        @if (message.IsUser)
+                        {
+                            <span class="bi bi-person-circle"></span>
+                        }
+                        else
+                        {
+                            <span class="bi bi-bullseye"></span>
+                        }
+                    </div>
+                    <div class="message-content">
+                        <div class="message-text">
+                            @((MarkupString)FormatMessage(message.Content))
+                        </div>
+                        <div class="message-time">
+                            @message.Timestamp.ToString("HH:mm")
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            @if (isThinking)
+            {
+                <div class="message ai-message">
+                    <div class="message-avatar">
+                        <span class="bi bi-bullseye"></span>
+                    </div>
+                    <div class="message-content">
+                        <div class="typing-indicator">
+                            <div class="typing-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                            <span class="typing-text">AI Coach is thinking...</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <div class="input-container">
+            <EditForm Model="currentMessage" OnValidSubmit="SendMessage" class="message-form">
+                <div class="input-group">
+                    <InputTextArea @bind-Value="currentMessage" 
+                                   placeholder="Ask your darts coach anything..." 
+                                   class="message-input"
+                                   @onkeydown="HandleKeyDown"
+                                   disabled="@isThinking" />
+                    <button type="submit" class="send-button" disabled="@(isThinking || string.IsNullOrWhiteSpace(currentMessage))">
+                        <span class="bi bi-send-fill"></span>
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+
+
+@code {
+    private List<ChatMessage> messages = new();
+    private string currentMessage = "";
+    private bool isThinking = false;
+    private ElementReference messagesContainer;
+    private bool isAuthenticated = false;
+    private string? userName = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+        userName = authState.User.Identity?.Name;
+    }
+
+    public class ChatMessage
+    {
+        public string Content { get; set; } = "";
+        public bool IsUser { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(currentMessage) || isThinking)
+            return;
+
+        var userMessage = currentMessage.Trim();
+        currentMessage = "";
+
+        // Add user message
+        messages.Add(new ChatMessage
+        {
+            Content = userMessage,
+            IsUser = true,
+            Timestamp = DateTime.Now
+        });
+
+        StateHasChanged();
+        await ScrollToBottom();
+
+        // Show thinking indicator
+        isThinking = true;
+        StateHasChanged();
+        await ScrollToBottom();
+
+        try
+        {
+            // Get coaching response from service
+            var aiResponse = await GetAIResponse(userMessage);
+            
+            // Add AI response
+            messages.Add(new ChatMessage
+            {
+                Content = aiResponse,
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+        }
+        catch (Exception)
+        {
+            // Service handles specific errors and returns user-friendly messages
+            // This is a fallback for any unexpected errors
+            messages.Add(new ChatMessage
+            {
+                Content = "I'm sorry, something unexpected happened. Please try again in a moment.",
+                IsUser = false,
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            isThinking = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task<string> GetAIResponse(string userMessage)
+    {
+        // Get current user ID
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        
+        if (string.IsNullOrEmpty(userId))
+        {
+            return "I'm sorry, I couldn't identify your user account. Please try logging out and back in.";
+        }
+
+        // Build conversation context from recent messages (last 6 messages for context)
+        var conversationContext = "";
+        if (messages.Count > 1)
+        {
+            var recentMessages = messages.TakeLast(6).ToList();
+            var contextParts = new List<string>();
+            
+            foreach (var msg in recentMessages)
+            {
+                var role = msg.IsUser ? "User" : "Assistant";
+                contextParts.Add($"{role}: {msg.Content}");
+            }
+            
+            conversationContext = "Recent conversation context:\n" + string.Join("\n", contextParts) + "\n\nCurrent question: ";
+        }
+
+        var messageWithContext = conversationContext + userMessage;
+        return await CoachingService.GetCoachingResponseAsync(messageWithContext, userId);
+    }
+
+    private string FormatMessage(string content)
+    {
+        // Simple formatting for demonstration
+        content = content.Replace("\n", "<br/>");
+        
+        // Properly handle bold formatting with ** pairs
+        content = System.Text.RegularExpressions.Regex.Replace(content, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
+        
+        content = content.Replace("• ", "• ");
+        return content;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendMessage();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        await Task.Delay(50); // Small delay to ensure content is rendered
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("CoachingChat.scrollToBottom", messagesContainer);
+        }
+        catch (JSException ex)
+        {
+            // Log the error but don't break the user experience
+            Console.WriteLine($"JavaScript error in ScrollToBottom: {ex.Message}");
+            // Fallback: use secure fallback function instead of eval
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("CoachingChat.fallbackScrollToBottom");
+            }
+            catch
+            {
+                // If all else fails, just continue without scrolling
+            }
+        }
+    }
+}
