@@ -12,6 +12,7 @@ public class CoachingService : ICoachingService
     private readonly IUserPerformanceService _performanceService;
     private readonly IPromptBuilderService _promptBuilderService;
     private readonly ILogger<CoachingService> _logger;
+    private readonly Dictionary<string, Func<string?, string?, CancellationToken, Task<string>>> _functionFactory;
 
     public CoachingService(
         IHttpClientFactory httpClientFactory, 
@@ -25,6 +26,70 @@ public class CoachingService : ICoachingService
         _performanceService = performanceService;
         _promptBuilderService = promptBuilderService;
         _logger = logger;
+        _functionFactory = InitializeFunctionFactory();
+    }
+
+    private Dictionary<string, Func<string?, string?, CancellationToken, Task<string>>> InitializeFunctionFactory()
+    {
+        return new Dictionary<string, Func<string?, string?, CancellationToken, Task<string>>>
+        {
+            ["get_head_to_head_stats"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteHeadToHeadFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_player_performance"] = (argumentsJson, userId, cancellationToken) => 
+                ExecutePlayerPerformanceFunction(userId!, cancellationToken),
+            
+            ["get_opponent_list"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteOpponentListFunction(userId!, cancellationToken),
+            
+            ["find_opponent"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteFindOpponentFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_detailed_leg_analysis"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteDetailedLegAnalysisFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_first_nine_analysis"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteFirstNineAnalysisFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_score_down_to_value_analysis"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteScoreDownToValueFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_any_player_first_nine_analysis"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerFirstNineAnalysisFunction(argumentsJson!, cancellationToken),
+            
+            ["get_any_player_score_down_to_value_analysis"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerScoreDownToValueFunction(argumentsJson!, cancellationToken),
+            
+            ["get_any_player_performance"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerPerformanceFunction(argumentsJson!, cancellationToken),
+            
+            ["get_all_player_names"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteGetAllPlayerNamesFunction(cancellationToken),
+            
+            ["get_average_score_per_turn_down_to_value"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAverageScorePerTurnDownToValueFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_any_player_average_score_per_turn_down_to_value"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerAverageScorePerTurnDownToValueFunction(argumentsJson!, cancellationToken),
+            
+            ["get_darts_to_win_from_value"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteDartsToWinFromValueFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_any_player_darts_to_win_from_value"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerDartsToWinFromValueFunction(argumentsJson!, cancellationToken),
+            
+            ["get_finishing_attempts_from_value"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteFinishingAttemptsFromValueFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_any_player_finishing_attempts_from_value"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerFinishingAttemptsFromValueFunction(argumentsJson!, cancellationToken),
+            
+            ["get_best_leg_analysis"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteBestLegAnalysisFunction(argumentsJson!, userId!, cancellationToken),
+            
+            ["get_any_player_best_leg_analysis"] = (argumentsJson, userId, cancellationToken) => 
+                ExecuteAnyPlayerBestLegAnalysisFunction(argumentsJson!, cancellationToken)
+        };
     }
 
     public async Task<string> GetCoachingResponseAsync(string userMessage, string userId, CancellationToken cancellationToken = default)
@@ -243,69 +308,13 @@ public class CoachingService : ICoachingService
         {
             _logger.LogInformation("Executing function: {FunctionName} with args: {Args}", functionName, argumentsJson);
 
-            switch (functionName)
+            if (_functionFactory.TryGetValue(functionName, out var functionHandler))
             {
-                case "get_head_to_head_stats":
-                    return await ExecuteHeadToHeadFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_player_performance":
-                    return await ExecutePlayerPerformanceFunction(userId, cancellationToken);
-                
-                case "get_opponent_list":
-                    return await ExecuteOpponentListFunction(userId, cancellationToken);
-                
-                case "find_opponent":
-                    return await ExecuteFindOpponentFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_detailed_leg_analysis":
-                    return await ExecuteDetailedLegAnalysisFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_first_nine_analysis":
-                    return await ExecuteFirstNineAnalysisFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_score_down_to_value_analysis":
-                    return await ExecuteScoreDownToValueFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_any_player_first_nine_analysis":
-                    return await ExecuteAnyPlayerFirstNineAnalysisFunction(argumentsJson, cancellationToken);
-                
-                case "get_any_player_score_down_to_value_analysis":
-                    return await ExecuteAnyPlayerScoreDownToValueFunction(argumentsJson, cancellationToken);
-                
-                case "get_any_player_performance":
-                    return await ExecuteAnyPlayerPerformanceFunction(argumentsJson, cancellationToken);
-                
-                case "get_all_player_names":
-                    return await ExecuteGetAllPlayerNamesFunction(cancellationToken);
-                
-                case "get_average_score_per_turn_down_to_value":
-                    return await ExecuteAverageScorePerTurnDownToValueFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_any_player_average_score_per_turn_down_to_value":
-                    return await ExecuteAnyPlayerAverageScorePerTurnDownToValueFunction(argumentsJson, cancellationToken);
-                
-                case "get_darts_to_win_from_value":
-                    return await ExecuteDartsToWinFromValueFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_any_player_darts_to_win_from_value":
-                    return await ExecuteAnyPlayerDartsToWinFromValueFunction(argumentsJson, cancellationToken);
-                
-                case "get_finishing_attempts_from_value":
-                    return await ExecuteFinishingAttemptsFromValueFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_any_player_finishing_attempts_from_value":
-                    return await ExecuteAnyPlayerFinishingAttemptsFromValueFunction(argumentsJson, cancellationToken);
-                
-                case "get_best_leg_analysis":
-                    return await ExecuteBestLegAnalysisFunction(argumentsJson, userId, cancellationToken);
-                
-                case "get_any_player_best_leg_analysis":
-                    return await ExecuteAnyPlayerBestLegAnalysisFunction(argumentsJson, cancellationToken);
-                
-                default:
-                    _logger.LogWarning("Unknown function called: {FunctionName}", functionName);
-                    return $"Unknown function: {functionName}";
+                return await functionHandler(argumentsJson, userId, cancellationToken);
             }
+            
+            _logger.LogWarning("Unknown function called: {FunctionName}", functionName);
+            return $"Unknown function: {functionName}";
         }
         catch (Exception ex)
         {
