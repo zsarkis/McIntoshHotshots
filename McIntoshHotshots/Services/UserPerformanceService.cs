@@ -2291,54 +2291,7 @@ public class UserPerformanceService : IUserPerformanceService
                 return new ScoreRangeAnalysis { StartScore = startScore, EndScore = endScore, OpponentName = opponentName };
             }
 
-            var analysis = new ScoreRangeAnalysis
-            {
-                StartScore = startScore,
-                EndScore = endScore,
-                OpponentName = opponentName,
-                IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
-            };
-
-            // Get player's leg details
-            var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
-            var playerDartCounts = CalculateDartsInScoreRange(playerLegDetails, startScore, endScore);
-
-            if (playerDartCounts.Any())
-            {
-                analysis.PlayerAverageDarts = playerDartCounts.Average();
-                analysis.PlayerFastestDarts = playerDartCounts.Min();
-                analysis.PlayerSlowestDarts = playerDartCounts.Max();
-                analysis.PlayerDartCounts = playerDartCounts;
-                analysis.TotalLegsAnalyzed = playerDartCounts.Count;
-            }
-
-            // If opponent comparison requested
-            if (analysis.IsOpponentComparison)
-            {
-                var allPlayers = await _playerRepo.GetPlayersAsync();
-                var opponent = allPlayers.FirstOrDefault(p => 
-                    string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
-
-                if (opponent != null)
-                {
-                    var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
-                    var opponentDartCounts = CalculateDartsInScoreRange(opponentLegDetails, startScore, endScore);
-
-                    if (opponentDartCounts.Any())
-                    {
-                        analysis.OpponentAverageDarts = opponentDartCounts.Average();
-                        analysis.OpponentFastestDarts = opponentDartCounts.Min();
-                        analysis.OpponentSlowestDarts = opponentDartCounts.Max();
-                        analysis.OpponentDartCounts = opponentDartCounts;
-
-                        analysis.Difference = analysis.PlayerAverageDarts - analysis.OpponentAverageDarts;
-                        analysis.Winner = analysis.Difference < 0 ? "Player" : "Opponent";
-                    }
-                }
-            }
-
-            GenerateScoreRangeInsights(analysis);
-            return analysis;
+            return await GetDartsInScoreRangeAnalysisInternalAsync(player, startScore, endScore, opponentName, $"user {userId}", cancellationToken);
         }
         catch (Exception ex)
         {
@@ -2360,27 +2313,7 @@ public class UserPerformanceService : IUserPerformanceService
                 return new ScoreRangeAnalysis { StartScore = startScore, EndScore = endScore };
             }
 
-            var analysis = new ScoreRangeAnalysis
-            {
-                StartScore = startScore,
-                EndScore = endScore,
-                IsOpponentComparison = false
-            };
-
-            var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
-            var playerDartCounts = CalculateDartsInScoreRange(playerLegDetails, startScore, endScore);
-
-            if (playerDartCounts.Any())
-            {
-                analysis.PlayerAverageDarts = playerDartCounts.Average();
-                analysis.PlayerFastestDarts = playerDartCounts.Min();
-                analysis.PlayerSlowestDarts = playerDartCounts.Max();
-                analysis.PlayerDartCounts = playerDartCounts;
-                analysis.TotalLegsAnalyzed = playerDartCounts.Count;
-            }
-
-            GenerateScoreRangeInsights(analysis);
-            return analysis;
+            return await GetDartsInScoreRangeAnalysisInternalAsync(player, startScore, endScore, null, $"player {playerName}", cancellationToken);
         }
         catch (Exception ex)
         {
@@ -2399,54 +2332,7 @@ public class UserPerformanceService : IUserPerformanceService
                 return new AverageScorePerTurnRangeAnalysis { StartScore = startScore, EndScore = endScore, OpponentName = opponentName };
             }
 
-            var analysis = new AverageScorePerTurnRangeAnalysis
-            {
-                StartScore = startScore,
-                EndScore = endScore,
-                OpponentName = opponentName,
-                IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
-            };
-
-            // Get player's leg details
-            var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
-            var playerScoreAverages = CalculateAverageScorePerTurnInRange(playerLegDetails, startScore, endScore);
-
-            if (playerScoreAverages.Any())
-            {
-                analysis.PlayerAverageScorePerTurn = playerScoreAverages.Average();
-                analysis.PlayerBestLegAverage = playerScoreAverages.Max();
-                analysis.PlayerWorstLegAverage = playerScoreAverages.Min();
-                analysis.PlayerScorePerTurnAverages = playerScoreAverages;
-                analysis.TotalLegsAnalyzed = playerScoreAverages.Count;
-            }
-
-            // If opponent comparison requested
-            if (analysis.IsOpponentComparison)
-            {
-                var allPlayers = await _playerRepo.GetPlayersAsync();
-                var opponent = allPlayers.FirstOrDefault(p => 
-                    string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
-
-                if (opponent != null)
-                {
-                    var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
-                    var opponentScoreAverages = CalculateAverageScorePerTurnInRange(opponentLegDetails, startScore, endScore);
-
-                    if (opponentScoreAverages.Any())
-                    {
-                        analysis.OpponentAverageScorePerTurn = opponentScoreAverages.Average();
-                        analysis.OpponentBestLegAverage = opponentScoreAverages.Max();
-                        analysis.OpponentWorstLegAverage = opponentScoreAverages.Min();
-                        analysis.OpponentScorePerTurnAverages = opponentScoreAverages;
-
-                        analysis.Difference = analysis.PlayerAverageScorePerTurn - analysis.OpponentAverageScorePerTurn;
-                        analysis.Winner = analysis.Difference > 0 ? "Player" : "Opponent";
-                    }
-                }
-            }
-
-            GenerateAverageScorePerTurnRangeInsights(analysis);
-            return analysis;
+            return await GetAverageScorePerTurnInRangeAnalysisInternalAsync(player, startScore, endScore, opponentName, $"user {userId}", cancellationToken);
         }
         catch (Exception ex)
         {
@@ -2468,33 +2354,129 @@ public class UserPerformanceService : IUserPerformanceService
                 return new AverageScorePerTurnRangeAnalysis { StartScore = startScore, EndScore = endScore };
             }
 
-            var analysis = new AverageScorePerTurnRangeAnalysis
-            {
-                StartScore = startScore,
-                EndScore = endScore,
-                IsOpponentComparison = false
-            };
-
-            var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
-            var playerScoreAverages = CalculateAverageScorePerTurnInRange(playerLegDetails, startScore, endScore);
-
-            if (playerScoreAverages.Any())
-            {
-                analysis.PlayerAverageScorePerTurn = playerScoreAverages.Average();
-                analysis.PlayerBestLegAverage = playerScoreAverages.Max();
-                analysis.PlayerWorstLegAverage = playerScoreAverages.Min();
-                analysis.PlayerScorePerTurnAverages = playerScoreAverages;
-                analysis.TotalLegsAnalyzed = playerScoreAverages.Count;
-            }
-
-            GenerateAverageScorePerTurnRangeInsights(analysis);
-            return analysis;
+            return await GetAverageScorePerTurnInRangeAnalysisInternalAsync(player, startScore, endScore, null, $"player {playerName}", cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in GetAnyPlayerAverageScorePerTurnInRangeAnalysisAsync for player {PlayerName}", playerName);
             return new AverageScorePerTurnRangeAnalysis { StartScore = startScore, EndScore = endScore };
         }
+    }
+
+    private async Task<ScoreRangeAnalysis> GetDartsInScoreRangeAnalysisInternalAsync(
+        PlayerModel player, 
+        int startScore, 
+        int endScore, 
+        string? opponentName, 
+        string logContext, 
+        CancellationToken cancellationToken)
+    {
+        var analysis = new ScoreRangeAnalysis
+        {
+            StartScore = startScore,
+            EndScore = endScore,
+            OpponentName = opponentName,
+            IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
+        };
+
+        // Get player's leg details and calculate dart counts
+        var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+        var playerDartCounts = CalculateDartsInScoreRange(playerLegDetails, startScore, endScore);
+
+        if (playerDartCounts.Any())
+        {
+            analysis.PlayerAverageDarts = playerDartCounts.Average();
+            analysis.PlayerFastestDarts = playerDartCounts.Min();
+            analysis.PlayerSlowestDarts = playerDartCounts.Max();
+            analysis.PlayerDartCounts = playerDartCounts;
+            analysis.TotalLegsAnalyzed = playerDartCounts.Count;
+        }
+
+        // Handle opponent comparison if requested
+        if (analysis.IsOpponentComparison)
+        {
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var opponent = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+            if (opponent != null)
+            {
+                var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
+                var opponentDartCounts = CalculateDartsInScoreRange(opponentLegDetails, startScore, endScore);
+
+                if (opponentDartCounts.Any())
+                {
+                    analysis.OpponentAverageDarts = opponentDartCounts.Average();
+                    analysis.OpponentFastestDarts = opponentDartCounts.Min();
+                    analysis.OpponentSlowestDarts = opponentDartCounts.Max();
+                    analysis.OpponentDartCounts = opponentDartCounts;
+
+                    analysis.Difference = analysis.PlayerAverageDarts - analysis.OpponentAverageDarts;
+                    analysis.Winner = analysis.Difference < 0 ? "Player" : "Opponent";
+                }
+            }
+        }
+
+        GenerateScoreRangeInsights(analysis);
+        return analysis;
+    }
+
+    private async Task<AverageScorePerTurnRangeAnalysis> GetAverageScorePerTurnInRangeAnalysisInternalAsync(
+        PlayerModel player, 
+        int startScore, 
+        int endScore, 
+        string? opponentName, 
+        string logContext, 
+        CancellationToken cancellationToken)
+    {
+        var analysis = new AverageScorePerTurnRangeAnalysis
+        {
+            StartScore = startScore,
+            EndScore = endScore,
+            OpponentName = opponentName,
+            IsOpponentComparison = !string.IsNullOrEmpty(opponentName)
+        };
+
+        // Get player's leg details and calculate score averages
+        var playerLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
+        var playerScoreAverages = CalculateAverageScorePerTurnInRange(playerLegDetails, startScore, endScore);
+
+        if (playerScoreAverages.Any())
+        {
+            analysis.PlayerAverageScorePerTurn = playerScoreAverages.Average();
+            analysis.PlayerBestLegAverage = playerScoreAverages.Max();
+            analysis.PlayerWorstLegAverage = playerScoreAverages.Min();
+            analysis.PlayerScorePerTurnAverages = playerScoreAverages;
+            analysis.TotalLegsAnalyzed = playerScoreAverages.Count;
+        }
+
+        // Handle opponent comparison if requested
+        if (analysis.IsOpponentComparison)
+        {
+            var allPlayers = await _playerRepo.GetPlayersAsync();
+            var opponent = allPlayers.FirstOrDefault(p => 
+                string.Equals(p.Name, opponentName, StringComparison.OrdinalIgnoreCase));
+
+            if (opponent != null)
+            {
+                var opponentLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(opponent.Id);
+                var opponentScoreAverages = CalculateAverageScorePerTurnInRange(opponentLegDetails, startScore, endScore);
+
+                if (opponentScoreAverages.Any())
+                {
+                    analysis.OpponentAverageScorePerTurn = opponentScoreAverages.Average();
+                    analysis.OpponentBestLegAverage = opponentScoreAverages.Max();
+                    analysis.OpponentWorstLegAverage = opponentScoreAverages.Min();
+                    analysis.OpponentScorePerTurnAverages = opponentScoreAverages;
+
+                    analysis.Difference = analysis.PlayerAverageScorePerTurn - analysis.OpponentAverageScorePerTurn;
+                    analysis.Winner = analysis.Difference > 0 ? "Player" : "Opponent";
+                }
+            }
+        }
+
+        GenerateAverageScorePerTurnRangeInsights(analysis);
+        return analysis;
     }
 
     private List<int> CalculateDartsInScoreRange(List<LegDetailModel> legDetails, int startScore, int endScore)
