@@ -39,7 +39,7 @@ public class UserPerformanceService : IUserPerformanceService
 
             // Get recent matches (last 10)
             var allMatches = await _matchSummaryRepo.GetMatchesByPlayerIdAsync(player.Id);
-            var recentMatches = allMatches.Take(10).ToList();
+            var recentMatches = allMatches.OrderByDescending(m => m.Id).Take(10).ToList();
 
             // Get recent leg details (last 50 turns)
             var allLegDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(player.Id);
