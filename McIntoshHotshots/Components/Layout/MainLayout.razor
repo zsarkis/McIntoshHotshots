@@ -2,9 +2,11 @@
 @inherits LayoutComponentBase
 
 <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+          crossorigin="anonymous"/>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
@@ -36,10 +38,13 @@
                             <i class="fas fa-graduation-cap"></i>
                             <span>Coaching</span>
                         </a>
-                        
+
                         <!-- Stats Dropdown -->
-                        <div class="nav-dropdown @(statsDropdownOpen ? "active" : "")" @onmouseover="() => statsDropdownOpen = true" @onmouseleave="() => statsDropdownOpen = false">
-                            <button class="nav-link dropdown-trigger" @onclick="() => statsDropdownOpen = !statsDropdownOpen">
+                        <div class="nav-dropdown @(statsDropdownOpen ? "active" : "")"
+                             @onmouseover="() => statsDropdownOpen = true"
+                             @onmouseleave="() => statsDropdownOpen = false">
+                            <button class="nav-link dropdown-trigger"
+                                    @onclick="() => statsDropdownOpen = !statsDropdownOpen">
                                 <i class="fas fa-chart-bar"></i>
                                 <span>Stats</span>
                                 <i class="fas fa-chevron-down dropdown-arrow"></i>
@@ -63,8 +68,11 @@
 
                         <!-- Admin Dropdown -->
                         <AuthorizeView Roles="Admin">
-                            <div class="nav-dropdown @(adminDropdownOpen ? "active" : "")" @onmouseover="() => adminDropdownOpen = true" @onmouseleave="() => adminDropdownOpen = false">
-                                <button class="nav-link dropdown-trigger admin-link" @onclick="() => adminDropdownOpen = !adminDropdownOpen">
+                            <div class="nav-dropdown @(adminDropdownOpen ? "active" : "")"
+                                 @onmouseover="() => adminDropdownOpen = true"
+                                 @onmouseleave="() => adminDropdownOpen = false">
+                                <button class="nav-link dropdown-trigger admin-link"
+                                        @onclick="() => adminDropdownOpen = !adminDropdownOpen">
                                     <i class="fas fa-shield-alt"></i>
                                     <span>Admin</span>
                                     <i class="fas fa-chevron-down dropdown-arrow"></i>
@@ -87,7 +95,7 @@
                     <div class="search-section">
                         <div class="search-container">
                             <i class="fas fa-search search-icon"></i>
-                            <input type="text" placeholder="Search tournaments, players..." class="search-input" />
+                            <input type="text" placeholder="Search tournaments, players..." class="search-input"/>
                             <kbd class="search-shortcut">⌘K</kbd>
                         </div>
                     </div>
