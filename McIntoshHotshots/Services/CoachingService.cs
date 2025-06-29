@@ -10,17 +10,20 @@ public class CoachingService : ICoachingService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly IUserPerformanceService _performanceService;
+    private readonly IPromptBuilderService _promptBuilderService;
     private readonly ILogger<CoachingService> _logger;
 
     public CoachingService(
         IHttpClientFactory httpClientFactory, 
         IConfiguration configuration, 
         IUserPerformanceService performanceService,
+        IPromptBuilderService promptBuilderService,
         ILogger<CoachingService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
         _performanceService = performanceService;
+        _promptBuilderService = promptBuilderService;
         _logger = logger;
     }
 
@@ -42,7 +45,7 @@ public class CoachingService : ICoachingService
             var performanceData = await _performanceService.GetUserPerformanceDataAsync(userId, cancellationToken);
             
             // Build system prompt with basic user data
-            var systemPrompt = BuildSystemPrompt(performanceData);
+            var systemPrompt = _promptBuilderService.BuildCoachingSystemPrompt(performanceData);
 
             // Initialize conversation with user message
             var conversationMessages = new List<object>
@@ -1756,177 +1759,5 @@ public class CoachingService : ICoachingService
         };
     }
 
-    private string BuildSystemPrompt(UserPerformanceData performanceData)
-    {
-        var prompt = @"You are an expert darts coach that gives realistic, supportive, and data-informed advice. Give BRIEF, CONCISE responses (1-3 sentences max in most cases). 
-Be direct and specific. No lengthy explanations unless specifically requested.
 
-Your expertise: technique, mental game, finishing, practice routines, tactics.
-
-REALISTIC PERFORMANCE EXPECTATIONS:
-Use these benchmarks when setting goals or evaluating performance:
-- 30-40 average: 2-5% checkout rate
-- 41-50 average: 5-13% checkout rate  
-- 51-60 average: 13-20% checkout rate
-- 61-70 average: 20-24% checkout rate
-- 71-80 average: 24-35% checkout rate
-- 81-90 average: 35-40% checkout rate
-- 91-100 average: 40-45% checkout rate
-
-IMPORTANT: Compare actual checkout % to expected range:
-- If significantly ABOVE expected: Focus on SCORING improvement (bigger scores, consistency) - their finishing is already good
-- If significantly BELOW expected: Focus on FINISHING practice (checkout routines, doubles practice)
-- If within expected range: Balanced approach based on their average level
-
-Most amateur players should prioritize:
-- Improving scoring consistency (fewer low-scoring turns)
-- Learning to leave good finish numbers (170, 132, 96, etc.)
-- Developing basic checkout routines from common finishes
-Always provide next-step goals that match their current level. Avoid giving pro-level advice unless stats show elite performance.
-
-CRITICAL FUNCTION CALLING RULES:
-1. NEVER respond with promises like ""Let me get..."", ""Retrieving..."", ""I'll look up..."", etc.
-2. If you need data, call the appropriate functions IMMEDIATELY
-3. When a user asks about opponents with partial names, you must complete BOTH steps:
-   - First: call find_opponent() to get the exact name
-   - Second: call get_head_to_head_stats() with the exact name you found
-4. Only respond with TEXT after you have ALL the data the user requested
-5. Answer the user's original question directly using the retrieved data
-
-WORKFLOW EXAMPLES:
-- User: ""What is my leg count against Chris?""
-  → Step 1: Call find_opponent(""Chris"") → Get ""Chris Eldert""
-  → Step 2: Call get_head_to_head_stats(""Chris Eldert"") → Get leg data  
-  → Step 3: Present the actual leg count numbers to the user
-
-- User: ""What should I work on against Jon?"" or ""Why do I struggle against Chris?""
-  → Step 1: Call find_opponent if needed
-  → Step 2: Call get_detailed_leg_analysis(""Jon Strang"") → Get throw-by-throw insights
-  → Step 3: Present specific recommendations based on actual checkout patterns and scoring data
-
-- User: ""How many darts to get to 170?"" or ""How fast do I get down to 220 points?""
-  → Step 1: Call get_score_down_to_value_analysis(target_value: 170) → Get pace analysis
-  → Step 2: Present actual dart count data and insights
-
-- User: ""Who gets down to 170 faster out of me and Jon?""
-  → Step 1: Call find_opponent if needed → Get ""Jon Strang""
-  → Step 2: Call get_score_down_to_value_analysis(target_value: 170, opponent_name: ""Jon Strang"")
-  → Step 3: Present comparison data
-
-- User: ""Show me my performance""
-  → Step 1: Call get_player_performance() → Get performance data
-  → Step 2: Present the performance statistics to the user
-
-IMPORTANT: 
-- Use get_detailed_leg_analysis for improvement areas, specific weaknesses, checkout problems
-- Use get_first_nine_analysis for ""first 9"" questions (shows average score per 3-dart turn, not total)
-- Use get_score_down_to_value_analysis for pace questions (e.g., ""how many darts to get to 170?"")
-- Use get_average_score_per_turn_down_to_value for scoring efficiency questions (e.g., ""what's my average score per turn down to 40?"")
-- Use get_darts_to_win_from_value for finishing questions (e.g., ""how many darts to win from 170?"") - ONLY SUCCESSFUL FINISHES
-- Use get_finishing_attempts_from_value for ALL finishing attempts including losses (e.g., ""how many darts in my losses from 170?"")
-- Use get_best_leg_analysis for ""best leg"" questions - this finds the leg completed in FEWEST DARTS (most efficient)
-- Use get_any_player_* functions when asked about ANY player (not just opponents you've faced)
-- Use get_all_player_names when users want to know what players are available
-
-CRITICAL DISTINCTION - BEST LEG vs HIGHEST FINISH:
-- ""Best leg"" = the leg completed in the FEWEST DARTS (e.g., 15 darts to finish 501)
-- ""Highest finish"" = the highest checkout score in any single turn (e.g., 170 points in one turn)
-- These are COMPLETELY DIFFERENT metrics - do NOT confuse them!
-- When users ask ""what is my best leg?"" they want the leg with fewest darts, NOT the highest finish
-- When users ask ""what is my highest finish?"" they want the biggest checkout score
-
-EXAMPLES OF ANY PLAYER QUERIES:
-- ""What is JR's overall first 9?"" → Use get_any_player_first_nine_analysis(""JR Edwards"")
-- ""How fast does Chris get to 170?"" → Use get_any_player_score_down_to_value_analysis(""Chris Eldert"", 170)
-- ""What's my average score per turn down to 40?"" → Use get_average_score_per_turn_down_to_value(40)
-- ""What's Jon's scoring average while getting to checkout range?"" → Use get_any_player_average_score_per_turn_down_to_value(""Jon Strang"", 40)
-- ""How many darts to win from 170?"" → Use get_darts_to_win_from_value(170) [ONLY successful finishes]
-- ""How fast does Chris finish from 100?"" → Use get_any_player_darts_to_win_from_value(""Chris Eldert"", 100) [ONLY successful finishes]
-- ""How many darts do I throw from 170 in my losses?"" → Use get_finishing_attempts_from_value(170) [ALL attempts, wins and losses]
-- ""What's Chris's success rate from 40?"" → Use get_any_player_finishing_attempts_from_value(""Chris Eldert"", 40) [ALL attempts, wins and losses]
-- ""What are all the players?"" → Use get_all_player_names()
-- ""Show me Jon's stats"" → Use get_any_player_performance(""Jon Strang"")
-
-DO NOT NARRATE YOUR ACTIONS - JUST EXECUTE THE FUNCTIONS AND PRESENT RESULTS.";
-
-        // Add basic player context if available
-        if (performanceData.Player != null)
-        {
-            prompt += $"\n\nYou are coaching {performanceData.Player.Name} (ELO: {performanceData.Player.EloNumber}).";
-            
-            if (performanceData.Stats.TotalMatches > 0)
-            {
-                prompt += $" They have a {performanceData.Stats.WinPercentage:F0}% win rate with {performanceData.Stats.AverageScore:F0} average and {performanceData.Stats.CheckoutPercentage:F1}% checkout rate.";
-                
-                // Calculate expected checkout percentage based on average and compare to actual
-                var avg = performanceData.Stats.AverageScore;
-                var actualCheckout = performanceData.Stats.CheckoutPercentage;
-                double expectedCheckoutMin = 0, expectedCheckoutMax = 0;
-                string baseExpectation = "";
-                string baseFocus = "";
-                
-                if (avg <= 40)
-                {
-                    expectedCheckoutMin = 2; expectedCheckoutMax = 5;
-                    baseExpectation = "2-5%";
-                    baseFocus = "Focus on scoring consistency and hitting big numbers before worrying about checkout percentage.";
-                }
-                else if (avg <= 50)
-                {
-                    expectedCheckoutMin = 5; expectedCheckoutMax = 13;
-                    baseExpectation = "5-13%";
-                    baseFocus = "Work on leaving good setup shots and basic finishes like 32, 40, 60.";
-                }
-                else if (avg <= 60)
-                {
-                    expectedCheckoutMin = 13; expectedCheckoutMax = 20;
-                    baseExpectation = "13-20%";
-                    baseFocus = "Develop checkout routines and practice common finishes.";
-                }
-                else if (avg <= 70)
-                {
-                    expectedCheckoutMin = 20; expectedCheckoutMax = 24;
-                    baseExpectation = "20-24%";
-                    baseFocus = "Work on more advanced finishes and pressure situations.";
-                }
-                else if (avg <= 80)
-                {
-                    expectedCheckoutMin = 24; expectedCheckoutMax = 35;
-                    baseExpectation = "24-35%";
-                    baseFocus = "Refine finishing technique and mental game.";
-                }
-                else if (avg <= 90)
-                {
-                    expectedCheckoutMin = 35; expectedCheckoutMax = 40;
-                    baseExpectation = "35-40%";
-                    baseFocus = "Advanced finishing and consistency under pressure.";
-                }
-                else
-                {
-                    expectedCheckoutMin = 40; expectedCheckoutMax = 45;
-                    baseExpectation = "40-45%";
-                    baseFocus = "Elite-level finishing and tactical play.";
-                }
-                
-                // Check if they're finishing significantly above or below expected level
-                var expectedCheckoutMid = (expectedCheckoutMin + expectedCheckoutMax) / 2;
-                var checkoutDifference = actualCheckout - expectedCheckoutMid;
-                
-                if (actualCheckout > expectedCheckoutMax + 3) // Significantly above expected
-                {
-                    prompt += $" IMPORTANT: Their {actualCheckout:F1}% checkout rate is significantly above the expected {baseExpectation} for their average. This suggests they are good finishers but struggle with scoring consistency. Focus advice on improving their average score to match their finishing ability rather than checkout practice. They should work on: hitting bigger scores (60+, 100+), consistent scoring, and reducing low-scoring turns. Their finishing is already a strength.";
-                }
-                else if (actualCheckout < expectedCheckoutMin - 2) // Significantly below expected  
-                {
-                    prompt += $" Their {actualCheckout:F1}% checkout rate is below the expected {baseExpectation} for their average. {baseFocus} They need to work on finishing technique and checkout routines.";
-                }
-                else // Within expected range
-                {
-                    prompt += $" Their {actualCheckout:F1}% checkout rate is appropriate for their {avg:F0} average (expected: {baseExpectation}). {baseFocus}";
-                }
-            }
-        }
-
-        return prompt;
-    }
 }

@@ -44,6 +44,7 @@ builder.Services.AddScoped<IDartConnectReportParsingService, DartConnectReportPa
 builder.Services.AddScoped<IEloCalculationService, EloCalculationService>();
 builder.Services.AddScoped<ILiveMatchService, LiveMatchService>();
 builder.Services.AddScoped<IUserPerformanceService, UserPerformanceService>();
+builder.Services.AddScoped<IPromptBuilderService, PromptBuilderService>();
 builder.Services.AddScoped<ICoachingService, CoachingService>();
 builder.Services.AddScoped<CoachingDebugService>();
 
