@@ -254,10 +254,10 @@
         {
             // Log the error but don't break the user experience
             Console.WriteLine($"JavaScript error in ScrollToBottom: {ex.Message}");
-            // Fallback: try to scroll using a simple approach
+            // Fallback: use secure fallback function instead of eval
             try
             {
-                await JSRuntime.InvokeVoidAsync("eval", $"document.querySelector('[data-scroll-container]').scrollTop = document.querySelector('[data-scroll-container]').scrollHeight");
+                await JSRuntime.InvokeVoidAsync("CoachingChat.fallbackScrollToBottom");
             }
             catch
             {
