@@ -6,81 +6,220 @@
 @inject AuthenticationStateProvider _authenticationStateProvider
 @inject IPlayerRepo _playerRepo
 
-<PageTitle>McIntosh Hotshots</PageTitle>
+<PageTitle>McIntosh Hotshots - Dart Tournament Series</PageTitle>
 
-@* TODO: scoped css *@
-<div style="width: 100%; max-width: 90rem; height: 98.25rem; padding-top: 5rem; background: white; flex-direction: column; justify-content: flex-start; align-items: center; display: inline-flex">
-  <div style="align-self: stretch; height: 36.25rem; padding: 3.75rem; flex-direction: column; justify-content: center; align-items: center; gap: 3.75rem; display: flex">
-    <div style="align-self: stretch; justify-content: center; align-items: center; gap: 3.75rem; display: inline-flex">
-      <div style="width: 11.25rem; height: 11.25rem; justify-content: flex-start; align-items: flex-start; display: flex">
-        <div style="width: 11.25rem; height: 11.25rem; position: relative; background: rgba(216.75, 216.75, 216.75, 0.50)"></div>
-      </div>
-      <div style="flex: 1 1 0; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 1.5rem; display: inline-flex">
-        <div style="align-self: stretch; color: black; font-size: 2.5rem; font-family: Roboto; font-weight: 700; line-height: 3rem; word-wrap: break-word">Upcoming Tournaments</div>
-        <div style="align-self: stretch; color: black; font-size: 1rem; font-family: Roboto; font-weight: 400; line-height: 1.5rem; word-wrap: break-word">Explore and Register</div>
-        <div style="justify-content: flex-start; align-items: flex-start; gap: 0.75rem; display: inline-flex">
-          <div style="width: 15rem; padding: 0.75rem; border-radius: 0.5rem; border: 0.0625rem black solid; flex-direction: column; justify-content: center; align-items: center; display: inline-flex">
-            <div style="color: black; font-size: 1rem; font-family: Roboto; font-weight: 500; line-height: 1.5rem; word-wrap: break-word">Filter Tournaments</div>
-          </div>
-          <div style="width: 15rem; padding: 0.75rem; background: black; border-radius: 0.5rem; flex-direction: column; justify-content: center; align-items: center; display: inline-flex">
-            <div style="color: white; font-size: 1rem; font-family: Roboto; font-weight: 500; line-height: 1.5rem; word-wrap: break-word">Register Now</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div style="align-self: stretch; height: 13.75rem; padding-top: 1.25rem; padding-bottom: 1.25rem; flex-direction: column; justify-content: center; align-items: center; gap: 2.5rem; display: flex">
-      <div style="align-self: stretch; justify-content: flex-start; align-items: center; gap: 2.5rem; display: inline-flex">
-        <div style="flex: 1 1 0; height: 11.25rem; padding: 1rem; border-radius: 0.375rem; border: 0.0625rem rgba(0, 0, 0, 0.10) solid; justify-content: center; align-items: flex-start; gap: 1rem; display: flex">
-          <div style="width: 6.25rem; height: 6.25rem; justify-content: flex-start; align-items: flex-start; display: flex">
-            <div style="width: 6.25rem; height: 6.25rem; position: relative; background: rgba(216.75, 216.75, 216.75, 0.50)"></div>
-          </div>
-          <div style="flex: 1 1 0; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 0.5rem; display: inline-flex">
-            <div style="align-self: stretch; color: black; font-size: 1.25rem; font-family: Roboto; font-weight: 500; line-height: 1.75rem; word-wrap: break-word">Monday Madness Dart Tournament</div>
-            <div style="align-self: stretch; color: rgba(0, 0, 0, 0.50); font-size: 0.875rem; font-family: Roboto; font-weight: 400; line-height: 1.25rem; word-wrap: break-word">Intermediate Level</div>
-            <div style="align-self: stretch; color: black; font-size: 1rem; font-family: Roboto; font-weight: 400; line-height: 1.5rem; word-wrap: break-word">Join the Monday Madness tournament and showcase your dart skills among the best players!</div>
-            <div style="align-self: stretch; padding-top: 0.25rem; padding-bottom: 0.25rem; justify-content: flex-start; align-items: center; gap: 0.375rem; display: inline-flex">
-              <div style="padding-left: 0.25rem; padding-right: 0.25rem; padding-top: 0.125rem; padding-bottom: 0.125rem; background: rgba(216.75, 216.75, 216.75, 0.50); border-radius: 0.125rem; overflow: hidden; border: 0.03125rem rgba(0, 0, 0, 0.10) solid; justify-content: center; align-items: center; gap: 0.125rem; display: flex">
-                <div style="color: black; font-size: 0.75rem; font-family: Roboto; font-weight: 400; line-height: 1rem; word-wrap: break-word">Date: 12th April</div>
-              </div>
-              <div style="padding-left: 0.25rem; padding-right: 0.25rem; padding-top: 0.125rem; padding-bottom: 0.125rem; background: rgba(216.75, 216.75, 216.75, 0.50); border-radius: 0.125rem; overflow: hidden; border: 0.03125rem rgba(0, 0, 0, 0.10) solid; justify-content: center; align-items: center; gap: 0.125rem; display: flex">
-                <div style="color: black; font-size: 0.75rem; font-family: Roboto; font-weight: 400; line-height: 1rem; word-wrap: break-word">Fee: $20</div>
-              </div>
-              <div style="padding-left: 0.25rem; padding-right: 0.25rem; padding-top: 0.125rem; padding-bottom: 0.125rem; background: rgba(216.75, 216.75, 216.75, 0.50); border-radius: 0.125rem; overflow: hidden; border: 0.03125rem rgba(0, 0, 0, 0.10) solid; justify-content: center; align-items: center; gap: 0.125rem; display: flex">
-                <div style="color: black; font-size: 0.75rem; font-family: Roboto; font-weight: 400; line-height: 1rem; word-wrap: break-word">Slots: 16</div>
-              </div>
+<div class="home-container fade-in">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <i class="fas fa-bullseye"></i>
+                Professional Dart Tournaments
             </div>
-          </div>
-        </div>
-        <div style="flex: 1 1 0; height: 11.25rem; padding: 1rem; border-radius: 0.375rem; border: 0.0625rem rgba(0, 0, 0, 0.10) solid; justify-content: center; align-items: flex-start; gap: 1rem; display: flex">
-          <div style="width: 6.25rem; height: 6.25rem; justify-content: flex-start; align-items: flex-start; display: flex">
-            <div style="width: 6.25rem; height: 6.25rem; position: relative; background: rgba(216.75, 216.75, 216.75, 0.50)"></div>
-          </div>
-          <div style="flex: 1 1 0; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 0.5rem; display: inline-flex">
-            <div style="align-self: stretch; color: black; font-size: 1.25rem; font-family: Roboto; font-weight: 500; line-height: 1.75rem; word-wrap: break-word">Weekend Showdown Championship</div>
-            <div style="align-self: stretch; color: rgba(0, 0, 0, 0.50); font-size: 0.875rem; font-family: Roboto; font-weight: 400; line-height: 1.25rem; word-wrap: break-word">Advanced Level</div>
-            <div style="align-self: stretch; color: black; font-size: 1rem; font-family: Roboto; font-weight: 400; line-height: 1.5rem; word-wrap: break-word">Compete in the Weekend Showdown to claim the championship title and awesome prizes!</div>
-            <div style="align-self: stretch; padding-top: 0.25rem; padding-bottom: 0.25rem; justify-content: flex-start; align-items: center; gap: 0.375rem; display: inline-flex">
-              <div style="padding-left: 0.25rem; padding-right: 0.25rem; padding-top: 0.125rem; padding-bottom: 0.125rem; background: rgba(216.75, 216.75, 216.75, 0.50); border-radius: 0.125rem; overflow: hidden; border: 0.03125rem rgba(0, 0, 0, 0.10) solid; justify-content: center; align-items: center; gap: 0.125rem; display: flex">
-                <div style="color: black; font-size: 0.75rem; font-family: Roboto; font-weight: 400; line-height: 1rem; word-wrap: break-word">Date: 24th April</div>
-              </div>
-              <div style="padding-left: 0.25rem; padding-right: 0.25rem; padding-top: 0.125rem; padding-bottom: 0.125rem; background: rgba(216.75, 216.75, 216.75, 0.50); border-radius: 0.125rem; overflow: hidden; border: 0.03125rem rgba(0, 0, 0, 0.10) solid; justify-content: center; align-items: center; gap: 0.125rem; display: flex">
-                <div style="color: black; font-size: 0.75rem; font-family: Roboto; font-weight: 400; line-height: 1rem; word-wrap: break-word">Fee: $30</div>
-              </div>
-              <div style="padding-left: 0.25rem; padding-right: 0.25rem; padding-top: 0.125rem; padding-bottom: 0.125rem; background: rgba(216.75, 216.75, 216.75, 0.50); border-radius: 0.125rem; overflow: hidden; border: 0.03125rem rgba(0, 0, 0, 0.10) solid; justify-content: center; align-items: center; gap: 0.125rem; display: flex">
-                <div style="color: black; font-size: 0.75rem; font-family: Roboto; font-weight: 400; line-height: 1rem; word-wrap: break-word">Slots: 24</div>
-              </div>
+            <h1 class="hero-title">
+                McIntosh <span class="gradient-text">Hotshots</span>
+            </h1>
+            <p class="hero-subtitle">
+                Experience competitive dart gaming at its finest. Join tournaments, track stats, 
+                and compete with players from around the world.
+            </p>
+            <div class="hero-actions">
+                <a href="/live-scoring" class="btn btn-primary hero-btn-primary">
+                    <i class="fas fa-play"></i>
+                    Start Playing
+                </a>
+                <a href="/tournaments" class="btn btn-secondary hero-btn-secondary">
+                    <i class="fas fa-trophy"></i>
+                    View Tournaments
+                </a>
             </div>
-          </div>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <div class="stat-number">1,250+</div>
+                    <div class="stat-label">Active Players</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">48</div>
+                    <div class="stat-label">Tournaments</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">5.2K</div>
+                    <div class="stat-label">Games Played</div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-    <div style="width: 100%; max-width: 90rem; height: 0rem; border: 0.0625rem rgba(0, 0, 0, 0.10) solid"></div>
-  </div>
+        <div class="hero-visual">
+            <div class="dartboard-container">
+                <div class="dartboard">
+                    <div class="dartboard-inner">
+                        <div class="dartboard-center">
+                            <div class="bullseye"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="floating-elements">
+                    <div class="floating-dart"></div>
+                    <div class="floating-dart"></div>
+                    <div class="floating-dart"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="section-header">
+            <h2>Everything You Need to Compete</h2>
+            <p>Professional tournament management with real-time scoring and comprehensive analytics</p>
+        </div>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3>Live Scoring</h3>
+                <p>Real-time tournament scoring with instant updates and live leaderboards</p>
+                <a href="/live-scoring" class="feature-link">
+                    Try Live Scoring <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <h3>AI Coaching</h3>
+                <p>Get personalized coaching tips and strategies from our AI-powered dart coach</p>
+                <a href="/coaching" class="feature-link">
+                    Start Coaching <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <h3>Tournaments</h3>
+                <p>Join competitive tournaments with players of all skill levels and win prizes</p>
+                <a href="/tournaments" class="feature-link">
+                    View Tournaments <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h3>Analytics</h3>
+                <p>Track your progress with detailed statistics and performance analytics</p>
+                <a href="/player-stats" class="feature-link">
+                    View Stats <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tournaments Section -->
+    <section class="tournaments-section">
+        <div class="section-header">
+            <h2>Upcoming Tournaments</h2>
+            <p>Join exciting tournaments and compete for prizes</p>
+        </div>
+        
+        <div class="tournaments-grid">
+            <div class="tournament-card featured">
+                <div class="tournament-badge">Featured</div>
+                <div class="tournament-icon">
+                    <i class="fas fa-fire"></i>
+                </div>
+                <h3>Monday Madness</h3>
+                <p class="tournament-level">Intermediate Level</p>
+                <p class="tournament-description">
+                    Join the Monday Madness tournament and showcase your dart skills among the best players!
+                </p>
+                <div class="tournament-details">
+                    <div class="tournament-detail">
+                        <i class="fas fa-calendar"></i>
+                        <span>April 12th</span>
+                    </div>
+                    <div class="tournament-detail">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span>$20 Entry</span>
+                    </div>
+                    <div class="tournament-detail">
+                        <i class="fas fa-users"></i>
+                        <span>16 Slots</span>
+                    </div>
+                </div>
+                <button class="btn btn-primary tournament-btn">
+                    Register Now <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+            
+            <div class="tournament-card">
+                <div class="tournament-badge">Championship</div>
+                <div class="tournament-icon">
+                    <i class="fas fa-crown"></i>
+                </div>
+                <h3>Weekend Showdown</h3>
+                <p class="tournament-level">Advanced Level</p>
+                <p class="tournament-description">
+                    Compete in the Weekend Showdown to claim the championship title and awesome prizes!
+                </p>
+                <div class="tournament-details">
+                    <div class="tournament-detail">
+                        <i class="fas fa-calendar"></i>
+                        <span>April 24th</span>
+                    </div>
+                    <div class="tournament-detail">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span>$30 Entry</span>
+                    </div>
+                    <div class="tournament-detail">
+                        <i class="fas fa-users"></i>
+                        <span>24 Slots</span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary tournament-btn">
+                    Register Now <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="tournaments-footer">
+            <a href="/tournaments" class="btn btn-ghost">
+                View All Tournaments <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="cta-content">
+            <h2>Ready to Start Your Journey?</h2>
+            <p>Join thousands of players in competitive dart tournaments</p>
+            <div class="cta-actions">
+                <a href="/register" class="btn btn-primary cta-btn">
+                    <i class="fas fa-user-plus"></i>
+                    Create Account
+                </a>
+                <a href="/live-scoring" class="btn btn-ghost cta-btn">
+                    <i class="fas fa-play"></i>
+                    Try Demo
+                </a>
+            </div>
+        </div>
+        <div class="cta-background">
+            <div class="cta-pattern"></div>
+        </div>
+    </section>
 </div>
 
 @code
 {
-  protected override async Task OnInitializedAsync()
-  {
-  }
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize any required data
+    }
 }

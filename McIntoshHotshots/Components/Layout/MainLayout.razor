@@ -2,87 +2,158 @@
 @inherits LayoutComponentBase
 
 <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
-<div class="page">
-
+<div class="page fade-in">
     <CascadingAuthenticationState>
-        <main>
-            <div class="top-row px-4">
-                <div style="width: 40px; height: 40px; background: rgba(0, 0, 0, 0.10); border-radius: 100px"></div>
-                <div style="flex: 1 1 0; color: black; font-size: 28px; font-family: Roboto; font-weight: 500; line-height: 36px; word-wrap: break-word">McIntosh Hotshots Dart Tournament Series</div>
-                <div style="justify-content: center; align-items: center; gap: 40px; display: flex">
-                    <a href="/" style="color: black; font-size: 16px; font-family: Roboto; font-weight: 400; line-height: 24px; word-wrap: break-word">Home</a>
-                    <a href="/live-scoring" style="color: black; font-size: 16px; font-family: Roboto; font-weight: 400; line-height: 24px; word-wrap: break-word">Play</a>
-                    <a href="/coaching" style="color: black; font-size: 16px; font-family: Roboto; font-weight: 400; line-height: 24px; word-wrap: break-word">Coaching</a>
-                    <div class="dropdown">
-                        <a href="#" onclick="return false;" style="color: black; font-size: 16px; font-family: Roboto; font-weight: 400; line-height: 24px; word-wrap: break-word">Stats</a>
-                        <div class="dropdown-content">
-                            <a href="/player-stats">Player Stats</a>
-                            <a href="/tournament-stats">Tournament Stats</a>
-                        </div>
+        <header class="main-header">
+            <div class="header-content">
+                <!-- Logo Section -->
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <i class="fas fa-bullseye"></i>
                     </div>
-                    <a href="/Identity/Account/Manage" style="color: black; font-size: 16px; font-family: Roboto; font-weight: 400; line-height: 24px; word-wrap: break-word">Profile</a>
-                    <AuthorizeView Roles="Admin">
-                        <div class="dropdown">
-                            <a href="#" onclick="return false;" style="color: black; font-size: 16px; font-family: Roboto; font-weight: 400; line-height: 24px; word-wrap: break-word">Admin</a>
-                            <div class="dropdown-content">
-                                <a href="/tournament-manager">Tournament Manager</a>
-                                <a href="/elo-rankings">ELO Rankings</a>
+                    <h1 class="brand-title">McIntosh Hotshots</h1>
+                    <span class="brand-subtitle">Dart Tournament Series</span>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="main-nav">
+                    <div class="nav-links">
+                        <a href="/" class="nav-link">
+                            <i class="fas fa-home"></i>
+                            <span>Home</span>
+                        </a>
+                        <a href="/live-scoring" class="nav-link primary-action">
+                            <i class="fas fa-play"></i>
+                            <span>Play</span>
+                        </a>
+                        <a href="/coaching" class="nav-link">
+                            <i class="fas fa-graduation-cap"></i>
+                            <span>Coaching</span>
+                        </a>
+                        
+                        <!-- Stats Dropdown -->
+                        <div class="nav-dropdown">
+                            <button class="nav-link dropdown-trigger">
+                                <i class="fas fa-chart-bar"></i>
+                                <span>Stats</span>
+                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                            </button>
+                            <div class="dropdown-menu">
+                                <a href="/player-stats" class="dropdown-item">
+                                    <i class="fas fa-user-chart"></i>
+                                    Player Stats
+                                </a>
+                                <a href="/tournament-stats" class="dropdown-item">
+                                    <i class="fas fa-trophy"></i>
+                                    Tournament Stats
+                                </a>
                             </div>
                         </div>
-                    </AuthorizeView>
-                    <div style="height: 36px; padding: 8px; border-radius: 6px; border: 1px rgba(0, 0, 0, 0.10) solid; justify-content: flex-end; align-items: center; gap: 4px; display: flex">
-                        <div style="flex: 1 1 0; color: rgba(0, 0, 0, 0.50); font-size: 14px; font-family: Roboto; font-weight: 400; line-height: 20px; word-wrap: break-word">Search in site</div>
-                        <div style="width: 20px; height: 20px; position: relative">
-                            <div style="width: 16.98px; height: 16.96px; left: 1.67px; top: 1.67px; position: absolute; background: rgba(0, 0, 0, 0.70)"></div>
+
+                        <a href="/Identity/Account/Manage" class="nav-link">
+                            <i class="fas fa-user-cog"></i>
+                            <span>Profile</span>
+                        </a>
+
+                        <!-- Admin Dropdown -->
+                        <AuthorizeView Roles="Admin">
+                            <div class="nav-dropdown">
+                                <button class="nav-link dropdown-trigger admin-link">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <span>Admin</span>
+                                    <i class="fas fa-chevron-down dropdown-arrow"></i>
+                                </button>
+                                <div class="dropdown-menu">
+                                    <a href="/tournament-manager" class="dropdown-item">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        Tournament Manager
+                                    </a>
+                                    <a href="/elo-rankings" class="dropdown-item">
+                                        <i class="fas fa-ranking-star"></i>
+                                        ELO Rankings
+                                    </a>
+                                </div>
+                            </div>
+                        </AuthorizeView>
+                    </div>
+
+                    <!-- Search Section -->
+                    <div class="search-section">
+                        <div class="search-container">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" placeholder="Search tournaments, players..." class="search-input" />
+                            <kbd class="search-shortcut">⌘K</kbd>
                         </div>
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="content-container">
+                @Body
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="main-footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>McIntosh Hotshots</h4>
+                    <p>Professional dart tournament management system</p>
+                </div>
+                <div class="footer-section">
+                    <h5>Quick Links</h5>
+                    <a href="/tournaments">Tournaments</a>
+                    <a href="/leaderboard">Leaderboard</a>
+                    <a href="/stats">Statistics</a>
+                </div>
+                <div class="footer-section">
+                    <h5>Support</h5>
+                    <a href="/help">Help Center</a>
+                    <a href="/contact">Contact</a>
+                    <a href="/feedback">Feedback</a>
+                </div>
+                <div class="footer-section">
+                    <div class="social-links">
+                        <a href="#" class="social-link" title="Twitter">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="social-link" title="Discord">
+                            <i class="fab fa-discord"></i>
+                        </a>
+                        <a href="#" class="social-link" title="GitHub">
+                            <i class="fab fa-github"></i>
+                        </a>
                     </div>
                 </div>
             </div>
-
-            <article class="content px-4">
-                @Body
-            </article>
-        </main>
+            <div class="footer-bottom">
+                <p>&copy; 2025 McIntosh Hotshots. All rights reserved.</p>
+            </div>
+        </footer>
     </CascadingAuthenticationState>
 </div>
 
+<!-- Error UI -->
 <div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
+    <div class="error-content">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>An unhandled error has occurred.</span>
+        <div class="error-actions">
+            <a href="" class="btn btn-secondary reload">
+                <i class="fas fa-redo"></i>
+                Reload
+            </a>
+            <button class="btn btn-ghost dismiss">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
 </div>
-
-<style>
-    .dropdown {
-        position: relative;
-        display: inline-block;
-    }
-
-    .dropdown-content {
-        display: none;
-        position: absolute;
-        background-color: #f9f9f9;
-        min-width: 160px;
-        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-        z-index: 1;
-        border-radius: 4px;
-    }
-
-    .dropdown-content a {
-        color: black;
-        padding: 12px 16px;
-        text-decoration: none;
-        display: block;
-    }
-
-    .dropdown-content a:hover {
-        background-color: #f1f1f1;
-    }
-
-    .dropdown:hover .dropdown-content {
-        display: block;
-    }
-</style>
