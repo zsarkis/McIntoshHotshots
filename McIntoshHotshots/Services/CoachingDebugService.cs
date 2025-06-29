@@ -52,12 +52,54 @@ public class CoachingDebugService
 
     private async Task<string> TestHeadToHeadFunction(string argumentsJson, string userId)
     {
-        using var argsDoc = JsonDocument.Parse(argumentsJson);
-        var opponentName = argsDoc.RootElement.GetProperty("opponent_name").GetString();
+        string? opponentName;
+        try
+        {
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            
+            // Safely check if the property exists and get its value
+            if (!argsDoc.RootElement.TryGetProperty("opponent_name", out var opponentNameElement))
+            {
+                _logger.LogWarning("Missing 'opponent_name' property in JSON arguments: {ArgumentsJson}", argumentsJson);
+                return JsonSerializer.Serialize(new
+                {
+                    status = "error",
+                    function = "get_head_to_head_stats",
+                    error_message = "Missing required 'opponent_name' property",
+                    debug_info = "The JSON input must contain a 'opponent_name' property"
+                }, new JsonSerializerOptions { WriteIndented = true });
+            }
+            
+            opponentName = opponentNameElement.GetString();
+            
+            // Check if the opponent name is null or empty
+            if (string.IsNullOrWhiteSpace(opponentName))
+            {
+                _logger.LogWarning("Empty or null 'opponent_name' value in JSON arguments: {ArgumentsJson}", argumentsJson);
+                return JsonSerializer.Serialize(new
+                {
+                    status = "error",
+                    function = "get_head_to_head_stats",
+                    error_message = "The 'opponent_name' property cannot be null or empty",
+                    debug_info = "Please provide a valid opponent name"
+                }, new JsonSerializerOptions { WriteIndented = true });
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse JSON arguments for head-to-head function: {ArgumentsJson}", argumentsJson);
+            return JsonSerializer.Serialize(new
+            {
+                status = "error",
+                function = "get_head_to_head_stats",
+                error_message = "Invalid JSON format",
+                debug_info = ex.Message
+            }, new JsonSerializerOptions { WriteIndented = true });
+        }
 
         _logger.LogInformation("Testing head-to-head for opponent: {OpponentName}", opponentName);
         
-        var headToHeadData = await _performanceService.GetHeadToHeadDataAsync(userId, opponentName!, CancellationToken.None);
+        var headToHeadData = await _performanceService.GetHeadToHeadDataAsync(userId, opponentName, CancellationToken.None);
         
         var result = new
         {
@@ -113,17 +155,59 @@ public class CoachingDebugService
 
     private async Task<string> TestFindOpponentFunction(string argumentsJson, string userId)
     {
-        using var argsDoc = JsonDocument.Parse(argumentsJson);
-        var searchTerm = argsDoc.RootElement.GetProperty("search_term").GetString();
+        string? searchTerm;
+        try
+        {
+            using var argsDoc = JsonDocument.Parse(argumentsJson);
+            
+            // Safely check if the property exists and get its value
+            if (!argsDoc.RootElement.TryGetProperty("search_term", out var searchTermElement))
+            {
+                _logger.LogWarning("Missing 'search_term' property in JSON arguments: {ArgumentsJson}", argumentsJson);
+                return JsonSerializer.Serialize(new
+                {
+                    status = "error",
+                    function = "find_opponent",
+                    error_message = "Missing required 'search_term' property",
+                    debug_info = "The JSON input must contain a 'search_term' property"
+                }, new JsonSerializerOptions { WriteIndented = true });
+            }
+            
+            searchTerm = searchTermElement.GetString();
+            
+            // Check if the search term is null or empty
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                _logger.LogWarning("Empty or null 'search_term' value in JSON arguments: {ArgumentsJson}", argumentsJson);
+                return JsonSerializer.Serialize(new
+                {
+                    status = "error",
+                    function = "find_opponent",
+                    error_message = "The 'search_term' property cannot be null or empty",
+                    debug_info = "Please provide a valid search term"
+                }, new JsonSerializerOptions { WriteIndented = true });
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse JSON arguments for find opponent function: {ArgumentsJson}", argumentsJson);
+            return JsonSerializer.Serialize(new
+            {
+                status = "error",
+                function = "find_opponent",
+                error_message = "Invalid JSON format",
+                debug_info = ex.Message
+            }, new JsonSerializerOptions { WriteIndented = true });
+        }
 
         _logger.LogInformation("Testing find opponent with search term: {SearchTerm}", searchTerm);
         
         var opponentList = await _performanceService.GetOpponentListAsync(userId, CancellationToken.None);
         
         var matches = opponentList.Where(name => 
-            name.Contains(searchTerm!, StringComparison.OrdinalIgnoreCase) ||
-            searchTerm!.Contains(name, StringComparison.OrdinalIgnoreCase) ||
-            name.Split(' ').Any(part => part.StartsWith(searchTerm!, StringComparison.OrdinalIgnoreCase))
+            name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            searchTerm.Contains(name, StringComparison.OrdinalIgnoreCase) ||
+            name.Split(' ').Any(part => part.StartsWith(searchTerm, StringComparison.OrdinalIgnoreCase))
         ).ToList();
 
         var result = new
