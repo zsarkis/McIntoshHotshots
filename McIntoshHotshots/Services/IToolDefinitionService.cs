@@ -1,6 +1,8 @@
+using McIntoshHotshots.Model;
+
 namespace McIntoshHotshots.Services;
 
 public interface IToolDefinitionService
 {
-    object[] GetAvailableTools();
+    ToolDefinition[] GetAvailableTools();
 } 
