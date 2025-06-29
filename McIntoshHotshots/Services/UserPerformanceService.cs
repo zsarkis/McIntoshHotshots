@@ -101,7 +101,7 @@ public class UserPerformanceService : IUserPerformanceService
 
             // Calculate checkout percentage (legs where final score reduced to 0)
             var checkoutAttempts = legDetails.Where(ld => ld.ScoreRemainingBeforeThrow.HasValue && ld.ScoreRemainingBeforeThrow <= 170 && ld.ScoreRemainingBeforeThrow > 0).ToList();
-            var successfulCheckouts = checkoutAttempts.Where(ld => ld.ScoreRemainingBeforeThrow == ld.Score).ToList();
+            var successfulCheckouts = checkoutAttempts.Where(ld => ld.ScoreRemainingBeforeThrow.Value == ld.Score).ToList();
             stats.CheckoutPercentage = checkoutAttempts.Any() ? (double)successfulCheckouts.Count / checkoutAttempts.Count * 100 : 0;
 
             // Highest finish
