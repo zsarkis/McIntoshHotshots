@@ -38,8 +38,8 @@
                         </a>
                         
                         <!-- Stats Dropdown -->
-                        <div class="nav-dropdown">
-                            <button class="nav-link dropdown-trigger">
+                        <div class="nav-dropdown @(statsDropdownOpen ? "active" : "")" @onmouseover="() => statsDropdownOpen = true" @onmouseleave="() => statsDropdownOpen = false">
+                            <button class="nav-link dropdown-trigger" @onclick="() => statsDropdownOpen = !statsDropdownOpen">
                                 <i class="fas fa-chart-bar"></i>
                                 <span>Stats</span>
                                 <i class="fas fa-chevron-down dropdown-arrow"></i>
@@ -63,8 +63,8 @@
 
                         <!-- Admin Dropdown -->
                         <AuthorizeView Roles="Admin">
-                            <div class="nav-dropdown">
-                                <button class="nav-link dropdown-trigger admin-link">
+                            <div class="nav-dropdown @(adminDropdownOpen ? "active" : "")" @onmouseover="() => adminDropdownOpen = true" @onmouseleave="() => adminDropdownOpen = false">
+                                <button class="nav-link dropdown-trigger admin-link" @onclick="() => adminDropdownOpen = !adminDropdownOpen">
                                     <i class="fas fa-shield-alt"></i>
                                     <span>Admin</span>
                                     <i class="fas fa-chevron-down dropdown-arrow"></i>
@@ -157,3 +157,8 @@
         </div>
     </div>
 </div>
+
+@code {
+    private bool statsDropdownOpen = false;
+    private bool adminDropdownOpen = false;
+}
