@@ -1083,7 +1083,8 @@ public class UserPerformanceService : IUserPerformanceService
             {
                 Player = player,
                 Stats = stats,
-                RecentLegDetails = legDetails.TakeLast(10).ToList()
+                RecentMatches = matches.Take(10).ToList(),
+                RecentLegDetails = legDetails.TakeLast(50).ToList()
             };
         }
         catch (Exception ex)
