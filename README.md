@@ -188,7 +188,53 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🚀 Deployment
 
-The application is configured for automatic deployment to Fly.io. The deployment pipeline includes:
+### Fly.io Deployment
+
+The application is configured for deployment to Fly.io with the app name `mcintoshhotshots-dev`.
+
+#### Prerequisites
+- Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/)
+- Authenticate with Fly.io: `fly auth login`
+- Ensure you have access to the `mcintoshhotshots-dev` app
+
+#### Setting Up Secrets
+
+To configure sensitive values like database connections and API keys, use Fly.io's secrets system. These values are injected into your app as environment variables and are **not stored in your codebase**.
+
+Run the following commands from your terminal, replacing the values as needed:
+
+```bash
+# Database connection string for PostgreSQL
+fly secrets set DATABASE_URL='Host=YOUR_HOST;Database=YOUR_DB;Username=YOUR_USER;Password=YOUR_PASSWORD' --app mcintoshhotshots-dev
+
+# OpenAI API configuration for coaching features
+fly secrets set OPENAI__APIKEY='your_openai_api_key' --app mcintoshhotshots-dev
+fly secrets set OPENAI__ENDPOINT='https://api.openai.com/v1/responses' --app mcintoshhotshots-dev
+fly secrets set OPENAI__MODEL='gpt-4o' --app mcintoshhotshots-dev
+```
+
+**Note**: The double underscores (`__`) in `OPENAI__APIKEY` map to colons (`:`) in the .NET configuration system. So `OPENAI__APIKEY` becomes accessible as `OpenAI:ApiKey` in your app.
+
+#### Required Secret Values
+
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string for your Fly.io database | `Host=your-db.internal;Database=mcintoshhotshots;Username=postgres;Password=your_password` |
+| `OPENAI__APIKEY` | Your OpenAI API key for coaching features | `sk-...` |
+| `OPENAI__ENDPOINT` | OpenAI API endpoint URL | `https://api.openai.com/v1/responses` |
+| `OPENAI__MODEL` | OpenAI model to use for coaching | `gpt-4o` |
+
+#### Deploying the Application
+
+After updating secrets, you must redeploy the app so the new values are picked up:
+
+```bash
+fly deploy --app mcintoshhotshots-dev
+```
+
+This rebuilds and restarts the app with the updated secrets.
+
+#### Deployment Pipeline Features
 - Automated Docker builds
 - Database migrations
 - Environment-specific configurations
