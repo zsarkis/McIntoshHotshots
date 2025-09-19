@@ -13,56 +13,11 @@
 <div class="dart-scorer">
     @if (currentMatch == null)
     {
-        <div class="match-setup">
-            <div class="setup-header">
-                <h1>New Match</h1>
-                <p>Select players to begin</p>
-            </div>
-            
-            <div class="player-selection">
-                <div class="player-select">
-                    <label>Home Player</label>
-                    <select @bind="selectedHomePlayerId" @bind:after="OnHomePlayerChanged">
-                        <option value="0">Select Player</option>
-                        @foreach (var player in players)
-                        {
-                            <option value="@player.Id">@player.Name</option>
-                        }
-                    </select>
-                </div>
-                
-                <div class="vs-text">VS</div>
-                
-                <div class="player-select">
-                    <label>Away Player</label>
-                    <select @bind="selectedAwayPlayerId" @bind:after="OnAwayPlayerChanged">
-                        <option value="0">Select Player</option>
-                        @foreach (var player in players.Where(p => p.Id != selectedHomePlayerId))
-                        {
-                            <option value="@player.Id">@player.Name</option>
-                        }
-                    </select>
-                </div>
-            </div>
-            
-            <button class="start-btn" @onclick="StartMatch" disabled="@(selectedHomePlayerId == 0 || selectedAwayPlayerId == 0)">
-                Start Match
-            </button>
-            
-            @if (activeMatches.Any())
-            {
-                <div class="resume-section">
-                    <h3>Resume Match</h3>
-                    @foreach (var match in activeMatches)
-                    {
-                        <div class="resume-card" @onclick="() => ResumeMatch(match.Id)">
-                            <span>@match.HomePlayerName vs @match.AwayPlayerName</span>
-                            <span class="resume-score">@match.HomeLegsWon - @match.AwayLegsWon</span>
-                        </div>
-                    }
-                </div>
-            }
-        </div>
+        <MatchSetup Players="players" 
+                   ActiveMatches="activeMatches"
+                   OnMatchStarted="OnMatchStarted" 
+                   OnResumeMatch="ResumeMatchById"
+                   OnPlayersChanged="OnPlayersChanged" />
     }
     else
     {
@@ -114,7 +69,6 @@
                 <div class="score-input-container">
                     @{
                         var currentPlayerHotkeys = currentMatch?.CurrentPlayerId == currentMatch?.HomePlayerId ? homePlayerHotkeys : awayPlayerHotkeys;
-                        var currentPlayerName = currentMatch?.CurrentPlayerId == currentMatch?.HomePlayerId ? currentMatch.HomePlayerName : currentMatch?.AwayPlayerName;
                     }
                     
                     <!-- Left Side - Low Scores -->
@@ -179,7 +133,7 @@
                                 <div class="calculator-numbers">
                                     @for (int i = 1; i <= 20; i++)
                                     {
-                                        int number = i; // Create local copy to avoid closure issue
+                                        int number = i;
                                         <button class="calc-num-btn" @onclick="() => AddDartScore(number)">@number</button>
                                     }
                                     <button class="calc-num-btn special" @onclick="() => AddDartScore(25)">25</button>
@@ -343,1147 +297,6 @@
     }
 </div>
 
-<style>
-/* Professional Dart Scoring Interface */
-.dart-scorer {
-    min-height: 100vh;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: var(--font-family-primary);
-}
-
-/* Match Setup */
-.match-setup {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: var(--spacing-xl);
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-.setup-header {
-    text-align: center;
-    margin-bottom: var(--spacing-2xl);
-}
-
-.setup-header h1 {
-    font-size: 3rem;
-    font-weight: 700;
-    margin-bottom: var(--spacing-sm);
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.setup-header p {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-}
-
-.player-selection {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2xl);
-    margin-bottom: var(--spacing-2xl);
-    width: 100%;
-}
-
-.player-select {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-}
-
-.player-select label {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 1.125rem;
-}
-
-.player-select select {
-    padding: var(--spacing-md);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-size: 1rem;
-    transition: all var(--transition-fast);
-}
-
-.player-select select:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px var(--interactive-focus);
-}
-
-.vs-text {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--accent-primary);
-    text-align: center;
-    min-width: 60px;
-}
-
-.start-btn {
-    padding: var(--spacing-lg) var(--spacing-2xl);
-    background: var(--gradient-primary);
-    color: white;
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: 1.125rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-normal);
-    box-shadow: var(--shadow-sm);
-}
-
-.start-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-}
-
-.start-btn:disabled {
-    background: var(--bg-surface);
-    color: var(--text-muted);
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-.resume-section {
-    margin-top: var(--spacing-2xl);
-    width: 100%;
-}
-
-.resume-section h3 {
-    text-align: center;
-    margin-bottom: var(--spacing-lg);
-    color: var(--text-secondary);
-}
-
-.resume-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--spacing-lg);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--spacing-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-.resume-card:hover {
-    background: var(--bg-surface);
-    border-color: var(--border-secondary);
-    transform: translateY(-1px);
-}
-
-.resume-score {
-    font-weight: 600;
-    color: var(--accent-primary);
-}
-
-/* Main Scoring Board */
-.scoring-board {
-    min-height: 100vh;
-    background: var(--bg-primary);
-    padding: var(--spacing-md);
-    display: grid;
-    grid-template-rows: auto auto 1fr auto auto;
-    gap: var(--spacing-md);
-    max-height: 100vh;
-    overflow: hidden;
-}
-
-/* Score Header - Professional Dart Board Style */
-.score-header {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-lg);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-lg);
-    border: 2px solid var(--border-primary);
-}
-
-.player-section {
-    text-align: center;
-    padding: var(--spacing-md);
-    border-radius: var(--radius-md);
-    transition: all var(--transition-normal);
-    border: 2px solid transparent;
-}
-
-.player-section.active {
-    background: var(--accent-primary);
-    color: white;
-    border-color: var(--accent-primary);
-    box-shadow: var(--shadow-lg);
-}
-
-.player-section.home.active {
-    background: #dc2626; /* Red for home like in the screenshot */
-}
-
-.player-label {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: var(--spacing-xs);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.player-name {
-    font-size: 0.875rem;
-    margin-bottom: var(--spacing-sm);
-    opacity: 0.9;
-}
-
-.player-score {
-    font-size: 3rem;
-    font-weight: 800;
-    line-height: 1;
-    font-feature-settings: 'tnum';
-}
-
-.center-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent-error);
-    color: white;
-    border-radius: var(--radius-md);
-    padding: var(--spacing-md);
-    min-width: 100px;
-}
-
-.brand-logo {
-    font-size: 1rem;
-    font-weight: 700;
-    color: white;
-}
-
-.brand-sub {
-    font-size: 0.625rem;
-    font-weight: 500;
-    letter-spacing: 2px;
-    margin-bottom: var(--spacing-xs);
-}
-
-.match-info {
-    font-size: 1.5rem;
-    font-weight: 800;
-    margin: var(--spacing-xs) 0;
-}
-
-.version {
-    font-size: 0.625rem;
-    opacity: 0.8;
-}
-
-/* Game Status */
-.game-status {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--spacing-md);
-    background: var(--bg-elevated);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-primary);
-}
-
-.current-leg {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.player-turn {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--accent-primary);
-}
-
-.dart-indicators {
-    display: flex;
-    gap: var(--spacing-sm);
-}
-
-.dart-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: var(--radius-full);
-    background: var(--bg-surface);
-    border: 2px solid var(--border-secondary);
-    transition: all var(--transition-fast);
-}
-
-.dart-dot.thrown {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 8px var(--accent-primary);
-}
-
-.error-alert {
-    padding: var(--spacing-sm);
-    background: var(--accent-error);
-    color: white;
-    border-radius: var(--radius-md);
-    text-align: center;
-    font-weight: 500;
-    margin-bottom: var(--spacing-sm);
-    font-size: 0.875rem;
-}
-
-/* Score Input - Tablet Optimized */
-.score-input-container {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: var(--spacing-md);
-    align-items: start;
-}
-
-.score-input {
-    background: var(--bg-elevated);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    border: 1px solid var(--border-primary);
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: var(--spacing-lg);
-    align-items: start;
-}
-
-.score-display {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-md);
-}
-
-.input-score {
-    font-size: 3.5rem;
-    font-weight: 800;
-    color: var(--accent-primary);
-    font-feature-settings: 'tnum';
-    margin-bottom: var(--spacing-sm);
-    line-height: 1;
-}
-
-.turn-breakdown {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    font-family: var(--font-family-mono);
-}
-
-.input-section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-}
-
-.number-pad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-sm);
-}
-
-.number-row {
-    display: contents;
-}
-
-.num-btn {
-    width: 100%;
-    height: 60px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-size: 1.5rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.num-btn:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--border-secondary);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-}
-
-.num-btn:active {
-    transform: translateY(0);
-}
-
-.num-btn.zero {
-    grid-column: 1 / -1;
-}
-
-.input-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr 2fr;
-    gap: var(--spacing-sm);
-}
-
-.action-btn {
-    padding: var(--spacing-sm);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-}
-
-.action-btn.clear {
-    background: var(--accent-warning);
-    color: white;
-    border-color: var(--accent-warning);
-}
-
-.action-btn.undo {
-    background: var(--bg-surface);
-    color: var(--text-primary);
-}
-
-.action-btn.submit {
-    background: var(--accent-success);
-    color: white;
-    border-color: var(--accent-success);
-}
-
-.action-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-}
-
-.action-btn:disabled {
-    background: var(--bg-surface);
-    color: var(--text-muted);
-    border-color: var(--border-primary);
-    cursor: not-allowed;
-    transform: none;
-}
-
-/* Personalized Hotkeys - Side Layout */
-.personalized-hotkeys {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    min-width: 80px;
-    padding: var(--spacing-md);
-    background: var(--bg-elevated);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-primary);
-}
-
-.personalized-hotkeys.left {
-    border-left: 3px solid var(--accent-success);
-}
-
-.personalized-hotkeys.right {
-    border-right: 3px solid var(--accent-primary);
-}
-
-.hotkey-side-label {
-    font-size: 0.625rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: var(--spacing-xs);
-    padding-bottom: var(--spacing-xs);
-    border-bottom: 1px solid var(--border-primary);
-}
-
-.personal-hotkey-btn {
-    padding: var(--spacing-sm);
-    background: var(--bg-surface);
-    border: 2px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.personal-hotkey-btn.low:hover:not(:disabled) {
-    background: var(--accent-success);
-    color: white;
-    border-color: var(--accent-success);
-    transform: translateY(-2px);
-    box-shadow: 0 0 12px var(--accent-success);
-}
-
-.personal-hotkey-btn.high:hover:not(:disabled) {
-    background: var(--accent-primary);
-    color: white;
-    border-color: var(--accent-primary);
-    transform: translateY(-2px);
-    box-shadow: 0 0 12px var(--accent-primary);
-}
-
-.personal-hotkey-btn:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.personal-hotkey-btn:disabled {
-    background: var(--bg-secondary);
-    color: var(--text-muted);
-    border-color: var(--border-primary);
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* Calculator Mode Styles */
-.calculator-display {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-}
-
-.dart-breakdown {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    font-family: var(--font-family-mono);
-    text-align: center;
-    min-height: 1.5rem;
-}
-
-.dart-breakdown .placeholder {
-    font-style: italic;
-    color: var(--text-muted);
-}
-
-.calculator-total {
-    font-size: 3rem;
-    font-weight: 800;
-    color: var(--accent-primary);
-    font-feature-settings: 'tnum';
-    line-height: 1;
-}
-
-.calculator-mode {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-}
-
-.multiplier-section {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-sm);
-}
-
-.multiplier-btn {
-    padding: var(--spacing-sm);
-    background: var(--bg-surface);
-    border: 2px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-    min-height: 44px;
-}
-
-.multiplier-btn:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--accent-primary);
-}
-
-.multiplier-btn.active {
-    background: var(--accent-primary);
-    color: white;
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 8px var(--accent-primary);
-}
-
-.calculator-numbers {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: var(--spacing-xs);
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.calc-num-btn {
-    padding: var(--spacing-sm);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-    min-height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.calc-num-btn:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--accent-primary);
-    transform: translateY(-1px);
-}
-
-.calc-num-btn.special {
-    background: var(--accent-secondary);
-    color: white;
-    border-color: var(--accent-secondary);
-}
-
-.calc-num-btn.special:hover {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-}
-
-.calculator-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr 2fr;
-    gap: var(--spacing-sm);
-}
-
-.calc-action-btn {
-    padding: var(--spacing-sm);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-    min-height: 44px;
-}
-
-.calc-action-btn.remove {
-    background: var(--accent-warning);
-    color: white;
-    border-color: var(--accent-warning);
-}
-
-.calc-action-btn.clear {
-    background: var(--accent-error);
-    color: white;
-    border-color: var(--accent-error);
-}
-
-.calc-action-btn.submit {
-    background: var(--accent-success);
-    color: white;
-    border-color: var(--accent-success);
-}
-
-.calc-action-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-}
-
-.calc-action-btn:disabled {
-    background: var(--bg-surface);
-    color: var(--text-muted);
-    border-color: var(--border-primary);
-    cursor: not-allowed;
-    transform: none;
-}
-
-.calc-mode-toggle {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-xs);
-    margin-top: var(--spacing-md);
-    padding: var(--spacing-xs);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-primary);
-}
-
-.mode-toggle-btn {
-    padding: var(--spacing-sm);
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-}
-
-.mode-toggle-btn:hover {
-    background: var(--bg-surface);
-    color: var(--text-primary);
-}
-
-.mode-toggle-btn.active {
-    background: var(--accent-primary);
-    color: white;
-    box-shadow: var(--shadow-sm);
-}
-
-/* Quick Scores */
-.quick-scores {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: var(--spacing-xs);
-    padding: var(--spacing-md);
-    background: var(--bg-elevated);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-primary);
-}
-
-.quick-score-btn {
-    padding: var(--spacing-sm);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-    min-height: 44px;
-}
-
-.quick-score-btn:hover:not(:disabled) {
-    background: var(--bg-tertiary);
-    border-color: var(--accent-primary);
-    transform: translateY(-1px);
-}
-
-.quick-score-btn.miss {
-    background: var(--accent-error);
-    color: white;
-    border-color: var(--accent-error);
-    grid-column: 1 / -1;
-}
-
-.quick-score-btn:disabled {
-    background: var(--bg-secondary);
-    color: var(--text-muted);
-    cursor: not-allowed;
-    transform: none;
-}
-
-/* Advanced Input - Tablet Optimized */
-.advanced-input {
-    background: var(--bg-elevated);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    border: 2px solid var(--accent-primary);
-    display: grid;
-    grid-template-rows: auto 1fr;
-    gap: var(--spacing-md);
-}
-
-.dart-input-header {
-    text-align: center;
-    margin-bottom: var(--spacing-sm);
-}
-
-.dart-input-header h3 {
-    color: var(--accent-primary);
-    margin-bottom: var(--spacing-xs);
-    font-size: 1.25rem;
-}
-
-.current-player-info {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.dart-controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr auto;
-    gap: var(--spacing-sm);
-    align-items: end;
-}
-
-.segment-select, .ring-select {
-    padding: var(--spacing-sm);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-size: 0.875rem;
-}
-
-.record-dart {
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--accent-primary);
-    color: white;
-    border: none;
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-}
-
-.record-dart:hover:not(:disabled) {
-    background: var(--accent-secondary);
-    transform: translateY(-1px);
-}
-
-.record-dart:disabled {
-    background: var(--bg-surface);
-    color: var(--text-muted);
-    cursor: not-allowed;
-}
-
-/* Mode Toggle */
-.mode-toggle {
-    display: flex;
-    justify-content: center;
-    padding: var(--spacing-sm);
-}
-
-.toggle-switch {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    cursor: pointer;
-    font-weight: 500;
-    color: var(--text-secondary);
-}
-
-.toggle-switch input {
-    display: none;
-}
-
-.toggle-slider {
-    width: 50px;
-    height: 24px;
-    background: var(--bg-surface);
-    border-radius: var(--radius-full);
-    position: relative;
-    transition: all var(--transition-fast);
-    border: 1px solid var(--border-primary);
-}
-
-.toggle-slider::before {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 18px;
-    height: 18px;
-    background: var(--text-muted);
-    border-radius: var(--radius-full);
-    transition: all var(--transition-fast);
-}
-
-.toggle-switch input:checked + .toggle-slider {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-}
-
-.toggle-switch input:checked + .toggle-slider::before {
-    transform: translateX(26px);
-    background: white;
-}
-
-/* Match Controls */
-.match-controls {
-    display: flex;
-    gap: var(--spacing-md);
-    justify-content: center;
-    padding: var(--spacing-sm);
-}
-
-.control-btn {
-    padding: var(--spacing-sm) var(--spacing-lg);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: 0.875rem;
-}
-
-.control-btn.secondary {
-    background: var(--bg-elevated);
-    color: var(--text-primary);
-}
-
-.control-btn.danger {
-    background: var(--accent-error);
-    color: white;
-    border-color: var(--accent-error);
-}
-
-.control-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-}
-
-/* Match Finished Overlay */
-.match-finished-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    backdrop-filter: blur(4px);
-}
-
-.finish-modal {
-    background: var(--bg-elevated);
-    border-radius: var(--radius-xl);
-    padding: var(--spacing-2xl);
-    text-align: center;
-    border: 1px solid var(--border-primary);
-    box-shadow: var(--shadow-xl);
-    max-width: 400px;
-    width: 90vw;
-}
-
-.finish-modal h2 {
-    color: var(--accent-success);
-    font-size: 2rem;
-    margin-bottom: var(--spacing-lg);
-}
-
-.winner-name {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: var(--spacing-md);
-}
-
-.final-result {
-    font-size: 3rem;
-    font-weight: 800;
-    color: var(--accent-primary);
-    margin-bottom: var(--spacing-xl);
-    font-feature-settings: 'tnum';
-}
-
-.finish-save-btn {
-    padding: var(--spacing-lg) var(--spacing-2xl);
-    background: var(--accent-success);
-    color: white;
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: 1.125rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-normal);
-}
-
-.finish-save-btn:hover {
-    background: #059669;
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-}
-
-  /* Tablet Optimizations */
- @@media (max-width: 1024px) and (min-width: 769px) {
-     .scoring-board {
-         grid-template-rows: auto auto 1fr auto;
-         gap: var(--spacing-sm);
-         padding: var(--spacing-sm);
-     }
-     
-     .score-input {
-         grid-template-columns: 1fr 1.5fr;
-         gap: var(--spacing-md);
-         padding: var(--spacing-md);
-     }
-     
-     .personalized-hotkeys {
-         min-width: 70px;
-         padding: var(--spacing-sm);
-     }
-     
-     .personal-hotkey-btn {
-         min-height: 36px;
-         font-size: 0.75rem;
-         padding: var(--spacing-xs);
-     }
-     
-     .quick-scores {
-         grid-template-columns: repeat(4, 1fr);
-         padding: var(--spacing-sm);
-     }
-     
-     .input-score {
-         font-size: 3rem;
-     }
-     
-     .calculator-numbers {
-         grid-template-columns: repeat(5, 1fr);
-         max-height: 180px;
-     }
-     
-     .calculator-total {
-         font-size: 2.5rem;
-     }
- }
- 
- /* Mobile Portrait */
- @@media (max-width: 768px) {
-     .scoring-board {
-         grid-template-rows: auto auto 1fr auto auto;
-         padding: var(--spacing-sm);
-         gap: var(--spacing-sm);
-     }
-     
-     .score-header {
-         grid-template-columns: 1fr;
-         gap: var(--spacing-sm);
-         text-align: center;
-         padding: var(--spacing-md);
-     }
-     
-     .player-section {
-         padding: var(--spacing-sm);
-     }
-     
-     .player-score {
-         font-size: 2.5rem;
-     }
-     
-     .score-input {
-         grid-template-columns: 1fr;
-         gap: var(--spacing-sm);
-         padding: var(--spacing-sm);
-     }
-     
-     .score-input-container {
-         grid-template-columns: 1fr;
-         gap: var(--spacing-sm);
-     }
-     
-     .personalized-hotkeys {
-         flex-direction: row;
-         justify-content: center;
-         min-width: unset;
-         padding: var(--spacing-sm);
-     }
-     
-     .personalized-hotkeys.left {
-         border-left: none;
-         border-top: 3px solid var(--accent-success);
-         order: 1;
-     }
-     
-     .personalized-hotkeys.right {
-         border-right: none;
-         border-top: 3px solid var(--accent-primary);
-         order: 3;
-     }
-     
-     .score-input {
-         order: 2;
-     }
-     
-     .personal-hotkey-btn {
-         min-height: 32px;
-         font-size: 0.75rem;
-         padding: var(--spacing-xs);
-     }
-     
-     .input-score {
-         font-size: 2.5rem;
-     }
-     
-     .num-btn {
-         height: 50px;
-         font-size: 1.125rem;
-     }
-     
-     .quick-scores {
-         grid-template-columns: repeat(3, 1fr);
-         gap: var(--spacing-xs);
-         padding: var(--spacing-sm);
-     }
-     
-     .dart-controls {
-         grid-template-columns: 1fr;
-         gap: var(--spacing-xs);
-     }
-     
-     .calculator-numbers {
-         grid-template-columns: repeat(4, 1fr);
-         max-height: 160px;
-     }
-     
-     .calculator-actions {
-         grid-template-columns: 1fr;
-         gap: var(--spacing-xs);
-     }
- }
- 
- @@media (max-width: 480px) {
-     .player-selection {
-         flex-direction: column;
-         gap: var(--spacing-md);
-     }
-     
-     .vs-text {
-         order: 2;
-         margin: var(--spacing-sm) 0;
-     }
-     
-     .number-pad {
-         gap: var(--spacing-xs);
-     }
-     
-     .num-btn {
-         height: 45px;
-         font-size: 1rem;
-     }
-     
-     .calculator-numbers {
-         grid-template-columns: repeat(3, 1fr);
-         max-height: 200px;
-     }
-     
-     .multiplier-section {
-         grid-template-columns: 1fr;
-         gap: var(--spacing-xs);
-     }
-     
-     .calc-mode-toggle {
-         grid-template-columns: 1fr;
-         gap: var(--spacing-xs);
-     }
-     
- }
-</style>
-
 @code {
     private List<PlayerModel> players = new();
     private List<LiveMatch> activeMatches = new();
@@ -1495,18 +308,18 @@
     
     // Advanced Rule Engine
     private DartsRuleEngine? dartsEngine;
-    private bool useAdvancedRuleEngine = false; // Default to basic mode
+    private bool useAdvancedRuleEngine = false;
     private string selectedSegment = string.Empty;
     private string selectedRing = string.Empty;
     
     // Calculator Mode
     private bool useCalculatorMode = false;
-    private string selectedMultiplier = "S"; // Single, Double, Triple
+    private string selectedMultiplier = "S";
     private List<DartScore> calculatorDarts = new();
     
     // Personalized Hotkeys
-    private PlayerCommonScores homePlayerHotkeys = new();
-    private PlayerCommonScores awayPlayerHotkeys = new();
+    private Services.PlayerCommonScores homePlayerHotkeys = new();
+    private Services.PlayerCommonScores awayPlayerHotkeys = new();
     
     protected override async Task OnInitializedAsync()
     {
@@ -1547,7 +360,7 @@
             }
             else
             {
-                homePlayerHotkeys = new PlayerCommonScores();
+                homePlayerHotkeys = new Services.PlayerCommonScores();
             }
             
             if (selectedAwayPlayerId > 0)
@@ -1556,31 +369,34 @@
             }
             else
             {
-                awayPlayerHotkeys = new PlayerCommonScores();
+                awayPlayerHotkeys = new Services.PlayerCommonScores();
             }
         }
         catch (Exception)
         {
-            // Log error but don't break the UI
-            homePlayerHotkeys = new PlayerCommonScores();
-            awayPlayerHotkeys = new PlayerCommonScores();
+            homePlayerHotkeys = new Services.PlayerCommonScores();
+            awayPlayerHotkeys = new Services.PlayerCommonScores();
         }
     }
     
-    private async Task StartMatch()
+    private async Task OnMatchStarted(LiveMatch match)
     {
-        if (selectedHomePlayerId > 0 && selectedAwayPlayerId > 0)
+        currentMatch = match;
+        selectedHomePlayerId = match.HomePlayerId;
+        selectedAwayPlayerId = match.AwayPlayerId;
+        await LoadPersonalizedHotkeys();
+        
+        if (useAdvancedRuleEngine)
         {
-            await LoadPersonalizedHotkeys();
-            currentMatch = await LiveMatchService.CreateMatchAsync(selectedHomePlayerId, selectedAwayPlayerId);
-            
-            if (useAdvancedRuleEngine && currentMatch != null)
-            {
-                dartsEngine = new DartsRuleEngine(currentMatch.HomePlayerName, currentMatch.AwayPlayerName);
-            }
-            
-            StateHasChanged();
+            dartsEngine = new DartsRuleEngine(currentMatch.HomePlayerName, currentMatch.AwayPlayerName);
         }
+        
+        StateHasChanged();
+    }
+    
+    private async Task ResumeMatchById(int matchId)
+    {
+        await ResumeMatch(matchId);
     }
     
     private async Task ResumeMatch(int matchId)
@@ -1599,6 +415,12 @@
             dartsEngine = new DartsRuleEngine(currentMatch.HomePlayerName, currentMatch.AwayPlayerName);
         }
         
+        StateHasChanged();
+    }
+    
+    private async Task OnPlayersChanged()
+    {
+        await LoadPersonalizedHotkeys();
         StateHasChanged();
     }
     
@@ -1712,18 +534,6 @@
         return currentMatch != null && !currentMatch.IsFinished && currentMatch.CanThrow;
     }
     
-    private async Task OnHomePlayerChanged()
-    {
-        await LoadPersonalizedHotkeys();
-        StateHasChanged();
-    }
-    
-    private async Task OnAwayPlayerChanged()
-    {
-        await LoadPersonalizedHotkeys();
-        StateHasChanged();
-    }
-    
     // Advanced Mode Methods
     private async Task OnRuleEngineToggled()
     {
@@ -1824,13 +634,7 @@
         }
     }
     
-    // Calculator Mode Classes and Methods
-    public class DartScore
-    {
-        public string Display { get; set; } = string.Empty;
-        public int Value { get; set; }
-    }
-    
+    // Calculator Mode Methods
     private void SetCalculatorMode(bool enabled)
     {
         useCalculatorMode = enabled;
@@ -1863,16 +667,16 @@
         int value;
         string display;
         
-        if (baseScore == 50) // Bull's eye
+        if (baseScore == 50)
         {
             value = 50;
             display = "BULL";
         }
-        else if (baseScore == 25) // Outer bull or single 25
+        else if (baseScore == 25)
         {
             if (selectedMultiplier == "D")
             {
-                value = 50; // Double 25 = Bull
+                value = 50;
                 display = "D25";
             }
             else
@@ -1883,7 +687,6 @@
         }
         else
         {
-            // Regular numbers 1-20
             switch (selectedMultiplier)
             {
                 case "S":
@@ -1905,7 +708,6 @@
             }
         }
         
-        // Check if total would exceed 180
         var currentTotal = calculatorDarts.Sum(d => d.Value);
         if (currentTotal + value > 180)
         {
@@ -1944,7 +746,7 @@
             var totalScore = calculatorDarts.Sum(d => d.Value);
             await RecordScore(totalScore);
             
-            if (string.IsNullOrEmpty(errorMessage)) // Only clear if no error occurred
+            if (string.IsNullOrEmpty(errorMessage))
             {
                 ClearCalculator();
             }
