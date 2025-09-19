@@ -14,6 +14,7 @@ public interface IUserPerformanceService
     Task<ScoreDownToValueAnalysis> GetAnyPlayerScoreDownToValueAnalysisAsync(string playerName, int targetValue, CancellationToken cancellationToken = default);
     Task<UserPerformanceData> GetAnyPlayerPerformanceDataAsync(string playerName, CancellationToken cancellationToken = default);
     Task<List<string>> GetAllPlayerNamesAsync(CancellationToken cancellationToken = default);
+    Task<PlayerCommonScores> GetPlayerCommonScoresAsync(int playerId, CancellationToken cancellationToken = default);
     Task<AverageScorePerTurnAnalysis> GetAverageScorePerTurnDownToValueAsync(string userId, int targetValue, string? opponentName = null, CancellationToken cancellationToken = default);
     Task<AverageScorePerTurnAnalysis> GetAnyPlayerAverageScorePerTurnDownToValueAsync(string playerName, int targetValue, CancellationToken cancellationToken = default);
     Task<ScoreDownToValueAnalysis> GetDartsToWinFromValueAnalysisAsync(string userId, int startingValue, string? opponentName = null, CancellationToken cancellationToken = default);
@@ -220,4 +221,10 @@ public class HeadToHeadData
     public double LegWinPercentage { get; set; }
     public string LastMatchResult { get; set; } = "";
     public List<string> PerformanceTrends { get; set; } = new();
+}
+
+public class PlayerCommonScores
+{
+    public List<int> LowScores { get; set; } = new();
+    public List<int> HighScores { get; set; } = new();
 } 

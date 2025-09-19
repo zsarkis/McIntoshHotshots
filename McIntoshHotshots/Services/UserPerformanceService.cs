@@ -1108,6 +1108,53 @@ public class UserPerformanceService : IUserPerformanceService
         }
     }
 
+    public async Task<PlayerCommonScores> GetPlayerCommonScoresAsync(int playerId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Get all leg details for this player
+            var legDetails = await _legDetailRepo.GetLegDetailsByPlayerIdAsync(playerId);
+            
+            if (!legDetails.Any())
+            {
+                return new PlayerCommonScores();
+            }
+
+            // Group scores by value and count occurrences (exclude 0 scores/misses)
+            var mostCommonScores = legDetails
+                .Where(ld => ld.Score > 0 && ld.Score <= 180)
+                .GroupBy(ld => ld.Score)
+                .Select(g => new { Score = g.Key, Count = g.Count() })
+                .Where(x => x.Count >= 2) // Only include scores that appear at least twice
+                .OrderByDescending(x => x.Count)
+                .ThenByDescending(x => x.Score) // If tied in count, prefer higher scores
+                .Take(6) // Get top 6 most common scores
+                .Select(x => x.Score)
+                .OrderBy(x => x) // Order by score ascending for splitting
+                .ToList();
+
+            if (!mostCommonScores.Any())
+            {
+                return new PlayerCommonScores();
+            }
+
+            // Split the 6 most common scores: bottom 3 go to left (low), top 3 go to right (high)
+            var lowScores = mostCommonScores.Take(3).ToList(); // Bottom 3 scores
+            var highScores = mostCommonScores.Skip(3).Take(3).ToList(); // Top 3 scores
+
+            return new PlayerCommonScores
+            {
+                LowScores = lowScores,   // Already ordered low to high
+                HighScores = highScores  // Already ordered low to high
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving common scores for player: {PlayerId}", playerId);
+            return new PlayerCommonScores();
+        }
+    }
+
     public async Task<AverageScorePerTurnAnalysis> GetAverageScorePerTurnDownToValueAsync(string userId, int targetValue, string? opponentName = null, CancellationToken cancellationToken = default)
     {
         try

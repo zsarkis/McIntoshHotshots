@@ -4,6 +4,7 @@
 @using McIntoshHotshots.Repo
 @inject ILiveMatchService LiveMatchService
 @inject IPlayerRepo PlayerRepo
+@inject IUserPerformanceService UserPerformanceService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -21,7 +22,7 @@
             <div class="player-selection">
                 <div class="player-select">
                     <label>Home Player</label>
-                    <select @bind="selectedHomePlayerId">
+                    <select @bind="selectedHomePlayerId" @bind:after="OnHomePlayerChanged">
                         <option value="0">Select Player</option>
                         @foreach (var player in players)
                         {
@@ -34,7 +35,7 @@
                 
                 <div class="player-select">
                     <label>Away Player</label>
-                    <select @bind="selectedAwayPlayerId">
+                    <select @bind="selectedAwayPlayerId" @bind:after="OnAwayPlayerChanged">
                         <option value="0">Select Player</option>
                         @foreach (var player in players.Where(p => p.Id != selectedHomePlayerId))
                         {
@@ -109,9 +110,59 @@
             
             @if (!useAdvancedRuleEngine)
             {
-                <!-- Simple Score Input -->
-                <div class="score-input">
-                    <div class="score-display">
+                <!-- Simple Score Input with Personalized Hotkeys -->
+                <div class="score-input-container">
+                    @{
+                        var currentPlayerHotkeys = currentMatch?.CurrentPlayerId == currentMatch?.HomePlayerId ? homePlayerHotkeys : awayPlayerHotkeys;
+                        var currentPlayerName = currentMatch?.CurrentPlayerId == currentMatch?.HomePlayerId ? currentMatch.HomePlayerName : currentMatch?.AwayPlayerName;
+                    }
+                    
+                    <!-- Player's Most Common Scores - Split Left/Right -->
+                    @if (currentPlayerHotkeys?.LowScores?.Any() == true || currentPlayerHotkeys?.HighScores?.Any() == true)
+                    {
+                        <div class="personalized-hotkeys-split">
+                            <div class="hotkey-header">
+                                <span class="hotkey-player">@currentPlayerName</span>
+                                <span class="hotkey-label">Most Common Scores</span>
+                            </div>
+                            
+                            <div class="hotkey-split-container">
+                                <!-- Left Side - Bottom 3 Scores -->
+                                <div class="personalized-hotkeys left">
+                                    @if (currentPlayerHotkeys?.LowScores?.Any() == true)
+                                    {
+                                        <div class="hotkey-side-label">Low</div>
+                                        @foreach (var score in currentPlayerHotkeys.LowScores)
+                                        {
+                                            <button class="personal-hotkey-btn low" @onclick="() => SetAndSubmitScore(score)"
+                                                    disabled="@(!CanRecordScore())">
+                                                @score
+                                            </button>
+                                        }
+                                    }
+                                </div>
+                                
+                                <!-- Right Side - Top 3 Scores -->
+                                <div class="personalized-hotkeys right">
+                                    @if (currentPlayerHotkeys?.HighScores?.Any() == true)
+                                    {
+                                        <div class="hotkey-side-label">High</div>
+                                        @foreach (var score in currentPlayerHotkeys.HighScores)
+                                        {
+                                            <button class="personal-hotkey-btn high" @onclick="() => SetAndSubmitScore(score)"
+                                                    disabled="@(!CanRecordScore())">
+                                                @score
+                                            </button>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    
+                    <!-- Main Score Input -->
+                    <div class="score-input">
+                        <div class="score-display">
                         @if (useCalculatorMode)
                         {
                             <div class="calculator-display">
@@ -220,6 +271,7 @@
                                 Calculator
                             </button>
                         </div>
+                    </div>
                     </div>
                 </div>
                 
@@ -607,6 +659,12 @@
 }
 
 /* Score Input - Tablet Optimized */
+.score-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
 .score-input {
     background: var(--bg-elevated);
     border-radius: var(--radius-lg);
@@ -732,6 +790,118 @@
     border-color: var(--border-primary);
     cursor: not-allowed;
     transform: none;
+}
+
+/* Personalized Hotkeys - Split Layout */
+.personalized-hotkeys-split {
+    background: var(--bg-elevated);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    border: 2px solid var(--accent-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.hotkey-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 2px solid var(--border-primary);
+}
+
+.hotkey-player {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
+.hotkey-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.hotkey-split-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-lg);
+}
+
+.personalized-hotkeys {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.personalized-hotkeys.left {
+    border-left: 3px solid var(--accent-success);
+    padding-left: var(--spacing-sm);
+}
+
+.personalized-hotkeys.right {
+    border-right: 3px solid var(--accent-primary);
+    padding-right: var(--spacing-sm);
+}
+
+.hotkey-side-label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: var(--spacing-xs);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.personal-hotkey-btn {
+    padding: var(--spacing-sm);
+    background: var(--bg-surface);
+    border: 2px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: 0.875rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.personal-hotkey-btn.low:hover:not(:disabled) {
+    background: var(--accent-success);
+    color: white;
+    border-color: var(--accent-success);
+    transform: translateY(-2px);
+    box-shadow: 0 0 12px var(--accent-success);
+}
+
+.personal-hotkey-btn.high:hover:not(:disabled) {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 0 12px var(--accent-primary);
+}
+
+.personal-hotkey-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.personal-hotkey-btn:disabled {
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    border-color: var(--border-primary);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 /* Calculator Mode Styles */
@@ -1200,6 +1370,16 @@
          padding: var(--spacing-md);
      }
      
+     .hotkey-split-container {
+         gap: var(--spacing-md);
+     }
+     
+     .personal-hotkey-btn {
+         min-height: 36px;
+         font-size: 0.75rem;
+         padding: var(--spacing-xs);
+     }
+     
      .quick-scores {
          grid-template-columns: repeat(4, 1fr);
          padding: var(--spacing-sm);
@@ -1246,6 +1426,17 @@
          grid-template-columns: 1fr;
          gap: var(--spacing-sm);
          padding: var(--spacing-sm);
+     }
+     
+     .hotkey-split-container {
+         grid-template-columns: 1fr;
+         gap: var(--spacing-sm);
+     }
+     
+     .personal-hotkey-btn {
+         min-height: 32px;
+         font-size: 0.75rem;
+         padding: var(--spacing-xs);
      }
      
      .input-score {
@@ -1313,6 +1504,7 @@
          grid-template-columns: 1fr;
          gap: var(--spacing-xs);
      }
+     
  }
 </style>
 
@@ -1335,6 +1527,10 @@
     private bool useCalculatorMode = false;
     private string selectedMultiplier = "S"; // Single, Double, Triple
     private List<DartScore> calculatorDarts = new();
+    
+    // Personalized Hotkeys
+    private PlayerCommonScores homePlayerHotkeys = new();
+    private PlayerCommonScores awayPlayerHotkeys = new();
     
     protected override async Task OnInitializedAsync()
     {
@@ -1365,10 +1561,41 @@
         activeMatches = await LiveMatchService.GetActiveMatchesAsync();
     }
     
+    private async Task LoadPersonalizedHotkeys()
+    {
+        try
+        {
+            if (selectedHomePlayerId > 0)
+            {
+                homePlayerHotkeys = await UserPerformanceService.GetPlayerCommonScoresAsync(selectedHomePlayerId);
+            }
+            else
+            {
+                homePlayerHotkeys = new PlayerCommonScores();
+            }
+            
+            if (selectedAwayPlayerId > 0)
+            {
+                awayPlayerHotkeys = await UserPerformanceService.GetPlayerCommonScoresAsync(selectedAwayPlayerId);
+            }
+            else
+            {
+                awayPlayerHotkeys = new PlayerCommonScores();
+            }
+        }
+        catch (Exception)
+        {
+            // Log error but don't break the UI
+            homePlayerHotkeys = new PlayerCommonScores();
+            awayPlayerHotkeys = new PlayerCommonScores();
+        }
+    }
+    
     private async Task StartMatch()
     {
         if (selectedHomePlayerId > 0 && selectedAwayPlayerId > 0)
         {
+            await LoadPersonalizedHotkeys();
             currentMatch = await LiveMatchService.CreateMatchAsync(selectedHomePlayerId, selectedAwayPlayerId);
             
             if (useAdvancedRuleEngine && currentMatch != null)
@@ -1383,6 +1610,13 @@
     private async Task ResumeMatch(int matchId)
     {
         currentMatch = await LiveMatchService.GetMatchAsync(matchId);
+        
+        if (currentMatch != null)
+        {
+            selectedHomePlayerId = currentMatch.HomePlayerId;
+            selectedAwayPlayerId = currentMatch.AwayPlayerId;
+            await LoadPersonalizedHotkeys();
+        }
         
         if (useAdvancedRuleEngine && currentMatch != null)
         {
@@ -1500,6 +1734,18 @@
     private bool CanRecordScore()
     {
         return currentMatch != null && !currentMatch.IsFinished && currentMatch.CanThrow;
+    }
+    
+    private async Task OnHomePlayerChanged()
+    {
+        await LoadPersonalizedHotkeys();
+        StateHasChanged();
+    }
+    
+    private async Task OnAwayPlayerChanged()
+    {
+        await LoadPersonalizedHotkeys();
+        StateHasChanged();
     }
     
     // Advanced Mode Methods
@@ -1728,4 +1974,4 @@
             }
         }
     }
-} 
+}
