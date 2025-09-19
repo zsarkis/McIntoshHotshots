@@ -117,48 +117,19 @@
                         var currentPlayerName = currentMatch?.CurrentPlayerId == currentMatch?.HomePlayerId ? currentMatch.HomePlayerName : currentMatch?.AwayPlayerName;
                     }
                     
-                    <!-- Player's Most Common Scores - Split Left/Right -->
-                    @if (currentPlayerHotkeys?.LowScores?.Any() == true || currentPlayerHotkeys?.HighScores?.Any() == true)
-                    {
-                        <div class="personalized-hotkeys-split">
-                            <div class="hotkey-header">
-                                <span class="hotkey-player">@currentPlayerName</span>
-                                <span class="hotkey-label">Most Common Scores</span>
-                            </div>
-                            
-                            <div class="hotkey-split-container">
-                                <!-- Left Side - Bottom 3 Scores -->
-                                <div class="personalized-hotkeys left">
-                                    @if (currentPlayerHotkeys?.LowScores?.Any() == true)
-                                    {
-                                        <div class="hotkey-side-label">Low</div>
-                                        @foreach (var score in currentPlayerHotkeys.LowScores)
-                                        {
-                                            <button class="personal-hotkey-btn low" @onclick="() => SetAndSubmitScore(score)"
-                                                    disabled="@(!CanRecordScore())">
-                                                @score
-                                            </button>
-                                        }
-                                    }
-                                </div>
-                                
-                                <!-- Right Side - Top 3 Scores -->
-                                <div class="personalized-hotkeys right">
-                                    @if (currentPlayerHotkeys?.HighScores?.Any() == true)
-                                    {
-                                        <div class="hotkey-side-label">High</div>
-                                        @foreach (var score in currentPlayerHotkeys.HighScores)
-                                        {
-                                            <button class="personal-hotkey-btn high" @onclick="() => SetAndSubmitScore(score)"
-                                                    disabled="@(!CanRecordScore())">
-                                                @score
-                                            </button>
-                                        }
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    }
+                    <!-- Left Side - Low Scores -->
+                    <div class="personalized-hotkeys left">
+                        @if (currentPlayerHotkeys?.LowScores?.Any() == true)
+                        {
+                            @foreach (var score in currentPlayerHotkeys.LowScores)
+                            {
+                                <button class="personal-hotkey-btn low" @onclick="() => SetAndSubmitScore(score)"
+                                        disabled="@(!CanRecordScore())">
+                                    @score
+                                </button>
+                            }
+                        }
+                    </div>
                     
                     <!-- Main Score Input -->
                     <div class="score-input">
@@ -272,6 +243,20 @@
                             </button>
                         </div>
                     </div>
+                    </div>
+                    
+                    <!-- Right Side - High Scores -->
+                    <div class="personalized-hotkeys right">
+                        @if (currentPlayerHotkeys?.HighScores?.Any() == true)
+                        {
+                            @foreach (var score in currentPlayerHotkeys.HighScores)
+                            {
+                                <button class="personal-hotkey-btn high" @onclick="() => SetAndSubmitScore(score)"
+                                        disabled="@(!CanRecordScore())">
+                                    @score
+                                </button>
+                            }
+                        }
                     </div>
                 </div>
                 
@@ -660,9 +645,10 @@
 
 /* Score Input - Tablet Optimized */
 .score-input-container {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     gap: var(--spacing-md);
+    align-items: start;
 }
 
 .score-input {
@@ -792,58 +778,24 @@
     transform: none;
 }
 
-/* Personalized Hotkeys - Split Layout */
-.personalized-hotkeys-split {
-    background: var(--bg-elevated);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    border: 2px solid var(--accent-primary);
-    box-shadow: var(--shadow-sm);
-}
-
-.hotkey-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--spacing-md);
-    padding-bottom: var(--spacing-sm);
-    border-bottom: 2px solid var(--border-primary);
-}
-
-.hotkey-player {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--accent-primary);
-}
-
-.hotkey-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.hotkey-split-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-lg);
-}
-
+/* Personalized Hotkeys - Side Layout */
 .personalized-hotkeys {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
+    min-width: 80px;
+    padding: var(--spacing-md);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-primary);
 }
 
 .personalized-hotkeys.left {
     border-left: 3px solid var(--accent-success);
-    padding-left: var(--spacing-sm);
 }
 
 .personalized-hotkeys.right {
     border-right: 3px solid var(--accent-primary);
-    padding-right: var(--spacing-sm);
 }
 
 .hotkey-side-label {
@@ -1370,8 +1322,9 @@
          padding: var(--spacing-md);
      }
      
-     .hotkey-split-container {
-         gap: var(--spacing-md);
+     .personalized-hotkeys {
+         min-width: 70px;
+         padding: var(--spacing-sm);
      }
      
      .personal-hotkey-btn {
@@ -1428,9 +1381,32 @@
          padding: var(--spacing-sm);
      }
      
-     .hotkey-split-container {
+     .score-input-container {
          grid-template-columns: 1fr;
          gap: var(--spacing-sm);
+     }
+     
+     .personalized-hotkeys {
+         flex-direction: row;
+         justify-content: center;
+         min-width: unset;
+         padding: var(--spacing-sm);
+     }
+     
+     .personalized-hotkeys.left {
+         border-left: none;
+         border-top: 3px solid var(--accent-success);
+         order: 1;
+     }
+     
+     .personalized-hotkeys.right {
+         border-right: none;
+         border-top: 3px solid var(--accent-primary);
+         order: 3;
+     }
+     
+     .score-input {
+         order: 2;
      }
      
      .personal-hotkey-btn {
