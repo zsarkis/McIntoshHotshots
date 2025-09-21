@@ -88,115 +88,42 @@
                     <!-- Main Score Input -->
                     <div class="score-input">
                         <div class="score-display">
-                        @if (useCalculatorMode)
-                        {
-                            <div class="calculator-display">
-                                <div class="dart-breakdown">
-                                    @if (calculatorDarts.Any())
-                                    {
-                                        @($"{string.Join(" + ", calculatorDarts.Select(d => d.Display))} = {calculatorDarts.Sum(d => d.Value)}")
-                                    }
-                                    else
-                                    {
-                                        <span class="placeholder">Enter individual dart scores...</span>
-                                    }
-                                </div>
-                                <div class="calculator-total">@calculatorDarts.Sum(d => d.Value)</div>
-                            </div>
-                        }
-                        else
-                        {
                             <div class="input-score">@inputScore</div>
                             @if (currentMatch.CurrentTurnScores.Any())
                             {
                                 <div class="turn-breakdown">@string.Join(" + ", currentMatch.CurrentTurnScores) = @currentMatch.CurrentTurnScores.Sum()</div>
                             }
-                        }
-                    </div>
-                    
-                    <div class="input-section">
-                        @if (useCalculatorMode)
-                        {
-                            <!-- Calculator Mode -->
-                            <div class="calculator-mode">
-                                <!-- Multiplier Selection -->
-                                <div class="multiplier-section">
-                                    <button class="multiplier-btn @(selectedMultiplier == "S" ? "active" : "")" 
-                                            @onclick='() => SetMultiplier("S")'>Single</button>
-                                    <button class="multiplier-btn @(selectedMultiplier == "D" ? "active" : "")" 
-                                            @onclick='() => SetMultiplier("D")'>Double</button>
-                                    <button class="multiplier-btn @(selectedMultiplier == "T" ? "active" : "")" 
-                                            @onclick='() => SetMultiplier("T")'>Triple</button>
-                                </div>
-                                
-                                <!-- Number Grid -->
-                                <div class="calculator-numbers">
-                                    @for (int i = 1; i <= 20; i++)
-                                    {
-                                        int number = i;
-                                        <button class="calc-num-btn" @onclick="() => AddDartScore(number)">@number</button>
-                                    }
-                                    <button class="calc-num-btn special" @onclick="() => AddDartScore(25)">25</button>
-                                    <button class="calc-num-btn special" @onclick="() => AddDartScore(50)">BULL</button>
-                                </div>
-                                
-                                <!-- Calculator Actions -->
-                                <div class="calculator-actions">
-                                    <button class="calc-action-btn remove" @onclick="RemoveLastDart" 
-                                            disabled="@(!calculatorDarts.Any())">Remove Last</button>
-                                    <button class="calc-action-btn clear" @onclick="ClearCalculator">Clear All</button>
-                                    <button class="calc-action-btn submit" @onclick="SubmitCalculatorScore" 
-                                            disabled="@(!CanRecordScore() || !calculatorDarts.Any() || calculatorDarts.Sum(d => d.Value) > 180)">
-                                        Submit (@calculatorDarts.Sum(d => d.Value))
-                                    </button>
-                                </div>
-                            </div>
-                        }
-                        else
-                        {
-                            <!-- Simple Number Pad -->
-                            <div class="number-pad">
-                                @for (int row = 0; row < 4; row++)
-                                {
-                                    <div class="number-row">
-                                        @if (row < 3)
-                                        {
-                                            @for (int col = 1; col <= 3; col++)
-                                            {
-                                                int number = (2 - row) * 3 + col;
-                                                <button class="num-btn" @onclick="() => AppendDigit(number)">@number</button>
-                                            }
-                                        }
-                                        else
-                                        {
-                                            <button class="num-btn zero" @onclick="() => AppendDigit(0)">0</button>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                            
-                            <div class="input-actions">
-                                <button class="action-btn clear" @onclick="ClearInput">Clear</button>
-                                <button class="action-btn undo" @onclick="UndoLastThrow">Undo</button>
-                                <button class="action-btn submit" @onclick="() => RecordScore(inputScore)" 
-                                        disabled="@(!CanRecordScore() || inputScore < 0 || inputScore > 180)">
-                                    Submit
-                                </button>
-                            </div>
-                        }
+                        </div>
                         
-                        <!-- Mode Toggle -->
-                        <div class="calc-mode-toggle">
-                            <button class="mode-toggle-btn @(!useCalculatorMode ? "active" : "")" 
-                                    @onclick="() => SetCalculatorMode(false)">
-                                Number Pad
-                            </button>
-                            <button class="mode-toggle-btn @(useCalculatorMode ? "active" : "")" 
-                                    @onclick="() => SetCalculatorMode(true)">
-                                Calculator
+                        <!-- Simple Number Pad -->
+                        <div class="number-pad">
+                            @for (int row = 0; row < 4; row++)
+                            {
+                                <div class="number-row">
+                                    @if (row < 3)
+                                    {
+                                        @for (int col = 1; col <= 3; col++)
+                                        {
+                                            int number = (2 - row) * 3 + col;
+                                            <button class="num-btn" @onclick="() => AppendDigit(number)">@number</button>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <button class="num-btn zero" @onclick="() => AppendDigit(0)">0</button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        
+                        <div class="input-actions">
+                            <button class="action-btn clear" @onclick="ClearInput">Clear</button>
+                            <button class="action-btn undo" @onclick="UndoLastThrow">Undo</button>
+                            <button class="action-btn submit" @onclick="() => RecordScore(inputScore)" 
+                                    disabled="@(!CanRecordScore() || inputScore < 0 || inputScore > 180)">
+                                Submit
                             </button>
                         </div>
-                    </div>
                     </div>
                     
                     <!-- Right Side - High Scores -->
@@ -312,10 +239,6 @@
     private string selectedSegment = string.Empty;
     private string selectedRing = string.Empty;
     
-    // Calculator Mode
-    private bool useCalculatorMode = false;
-    private string selectedMultiplier = "S";
-    private List<DartScore> calculatorDarts = new();
     
     // Personalized Hotkeys
     private Services.PlayerCommonScores homePlayerHotkeys = new();
@@ -634,122 +557,4 @@
         }
     }
     
-    // Calculator Mode Methods
-    private void SetCalculatorMode(bool enabled)
-    {
-        useCalculatorMode = enabled;
-        if (enabled)
-        {
-            ClearCalculator();
-        }
-        else
-        {
-            ClearInput();
-        }
-        StateHasChanged();
-    }
-    
-    private void SetMultiplier(string multiplier)
-    {
-        selectedMultiplier = multiplier;
-        StateHasChanged();
-    }
-    
-    private void AddDartScore(int baseScore)
-    {
-        if (calculatorDarts.Count >= 3)
-        {
-            errorMessage = "Maximum 3 darts per turn";
-            StateHasChanged();
-            return;
-        }
-        
-        int value;
-        string display;
-        
-        if (baseScore == 50)
-        {
-            value = 50;
-            display = "BULL";
-        }
-        else if (baseScore == 25)
-        {
-            if (selectedMultiplier == "D")
-            {
-                value = 50;
-                display = "D25";
-            }
-            else
-            {
-                value = 25;
-                display = selectedMultiplier == "S" ? "25" : $"{selectedMultiplier}25";
-            }
-        }
-        else
-        {
-            switch (selectedMultiplier)
-            {
-                case "S":
-                    value = baseScore;
-                    display = baseScore.ToString();
-                    break;
-                case "D":
-                    value = baseScore * 2;
-                    display = $"D{baseScore}";
-                    break;
-                case "T":
-                    value = baseScore * 3;
-                    display = $"T{baseScore}";
-                    break;
-                default:
-                    value = baseScore;
-                    display = baseScore.ToString();
-                    break;
-            }
-        }
-        
-        var currentTotal = calculatorDarts.Sum(d => d.Value);
-        if (currentTotal + value > 180)
-        {
-            errorMessage = $"Total cannot exceed 180 (current: {currentTotal}, adding: {value})";
-            StateHasChanged();
-            return;
-        }
-        
-        calculatorDarts.Add(new DartScore { Display = display, Value = value });
-        errorMessage = string.Empty;
-        StateHasChanged();
-    }
-    
-    private void RemoveLastDart()
-    {
-        if (calculatorDarts.Any())
-        {
-            calculatorDarts.RemoveAt(calculatorDarts.Count - 1);
-            errorMessage = string.Empty;
-            StateHasChanged();
-        }
-    }
-    
-    private void ClearCalculator()
-    {
-        calculatorDarts.Clear();
-        selectedMultiplier = "S";
-        errorMessage = string.Empty;
-        StateHasChanged();
-    }
-    
-    private async Task SubmitCalculatorScore()
-    {
-        if (calculatorDarts.Any())
-        {
-            var totalScore = calculatorDarts.Sum(d => d.Value);
-            await RecordScore(totalScore);
-            
-            if (string.IsNullOrEmpty(errorMessage))
-            {
-                ClearCalculator();
-            }
-        }
-    }
 }
