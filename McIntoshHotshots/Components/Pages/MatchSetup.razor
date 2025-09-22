@@ -1,0 +1,87 @@
+@using McIntoshHotshots.Model
+@using McIntoshHotshots.Services
+@using McIntoshHotshots.Repo
+@inject ILiveMatchService LiveMatchService
+@inject IPlayerRepo PlayerRepo
+@inject IUserPerformanceService UserPerformanceService
+
+<div class="match-setup">
+    <div class="setup-header">
+        <h1>New Match</h1>
+        <p>Select players to begin</p>
+    </div>
+    
+    <div class="player-selection">
+        <div class="player-select">
+            <label>Home Player</label>
+            <select @bind="SelectedHomePlayerId" @bind:after="OnHomePlayerChanged">
+                <option value="0">Select Player</option>
+                @foreach (var player in Players)
+                {
+                    <option value="@player.Id">@player.Name</option>
+                }
+            </select>
+        </div>
+        
+        <div class="vs-text">VS</div>
+        
+        <div class="player-select">
+            <label>Away Player</label>
+            <select @bind="SelectedAwayPlayerId" @bind:after="OnAwayPlayerChanged">
+                <option value="0">Select Player</option>
+                @foreach (var player in Players.Where(p => p.Id != SelectedHomePlayerId))
+                {
+                    <option value="@player.Id">@player.Name</option>
+                }
+            </select>
+        </div>
+    </div>
+    
+    <button class="start-btn" @onclick="StartMatch" disabled="@(SelectedHomePlayerId == 0 || SelectedAwayPlayerId == 0)">
+        Start Match
+    </button>
+    
+    @if (ActiveMatches.Any())
+    {
+        <div class="resume-section">
+            <h3>Resume Match</h3>
+            @foreach (var match in ActiveMatches)
+            {
+                <div class="resume-card" @onclick="() => OnResumeMatch.InvokeAsync(match.Id)">
+                    <span>@match.HomePlayerName vs @match.AwayPlayerName</span>
+                    <span class="resume-score">@match.HomeLegsWon - @match.AwayLegsWon</span>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<PlayerModel> Players { get; set; } = new();
+    [Parameter] public List<LiveMatch> ActiveMatches { get; set; } = new();
+    [Parameter] public EventCallback<LiveMatch> OnMatchStarted { get; set; }
+    [Parameter] public EventCallback<int> OnResumeMatch { get; set; }
+    [Parameter] public EventCallback OnPlayersChanged { get; set; }
+    
+    public int SelectedHomePlayerId { get; set; } = 0;
+    public int SelectedAwayPlayerId { get; set; } = 0;
+    
+    private async Task StartMatch()
+    {
+        if (SelectedHomePlayerId > 0 && SelectedAwayPlayerId > 0)
+        {
+            var match = await LiveMatchService.CreateMatchAsync(SelectedHomePlayerId, SelectedAwayPlayerId);
+            await OnMatchStarted.InvokeAsync(match);
+        }
+    }
+    
+    private async Task OnHomePlayerChanged()
+    {
+        await OnPlayersChanged.InvokeAsync();
+    }
+    
+    private async Task OnAwayPlayerChanged()
+    {
+        await OnPlayersChanged.InvokeAsync();
+    }
+}
