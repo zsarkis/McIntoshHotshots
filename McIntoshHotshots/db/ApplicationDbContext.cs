@@ -22,11 +22,58 @@ public class ApplicationDbContext : IdentityDbContext
         base.OnModelCreating(modelBuilder);
 
         // Configure table names to match existing database schema
-        modelBuilder.Entity<PlayerModel>().ToTable("players");
-        modelBuilder.Entity<TournamentModel>().ToTable("tournaments");
-        modelBuilder.Entity<MatchSummaryModel>().ToTable("match_summaries");
-        modelBuilder.Entity<LegModel>().ToTable("legs");
-        modelBuilder.Entity<LegDetailModel>().ToTable("leg_details");
+        modelBuilder.Entity<PlayerModel>().ToTable("player");
+        modelBuilder.Entity<TournamentModel>().ToTable("tournament");
+        modelBuilder.Entity<MatchSummaryModel>().ToTable("match_summary");
+        modelBuilder.Entity<LegModel>().ToTable("leg");
+        modelBuilder.Entity<LegDetailModel>().ToTable("leg_detail");
+
+        // Configure column names to match existing database schema (lowercase)
+        modelBuilder.Entity<PlayerModel>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name");
+            entity.Property(e => e.Earnings).HasColumnName("earnings");
+            // elo_number and user_id are already mapped via [Column] attribute
+            // preferences is already mapped via [Column] attribute
+        });
+
+        modelBuilder.Entity<TournamentModel>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Date).HasColumnName("date");
+            // pool_count and max_attendees are already mapped via [Column] attribute
+        });
+
+        modelBuilder.Entity<MatchSummaryModel>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            // Other columns are already mapped via [Column] attributes
+        });
+
+        modelBuilder.Entity<LegModel>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MatchId).HasColumnName("match_id");
+            entity.Property(e => e.LegNumber).HasColumnName("leg_number");
+            entity.Property(e => e.HomePlayerDartsThrown).HasColumnName("home_player_darts_thrown");
+            entity.Property(e => e.AwayPlayerDartsThrown).HasColumnName("away_player_darts_thrown");
+            entity.Property(e => e.LoserScoreRemaining).HasColumnName("loser_score_remaining");
+            entity.Property(e => e.WinnerId).HasColumnName("winner_id");
+            entity.Property(e => e.TimeElapsed).HasColumnName("time_elapsed");
+        });
+
+        modelBuilder.Entity<LegDetailModel>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MatchId).HasColumnName("match_id");
+            entity.Property(e => e.LegId).HasColumnName("leg_id");
+            entity.Property(e => e.TurnNumber).HasColumnName("turn_number");
+            entity.Property(e => e.PlayerId).HasColumnName("player_id");
+            entity.Property(e => e.ScoreRemainingBeforeThrow).HasColumnName("score_remaining_before_throw");
+            entity.Property(e => e.Score).HasColumnName("score");
+            entity.Property(e => e.DartsUsed).HasColumnName("darts_used");
+        });
 
         // Configure foreign key relationships
         modelBuilder.Entity<MatchSummaryModel>()
