@@ -127,25 +127,48 @@ public class LiveMatchService : ILiveMatchService
     {
         if (!_activeMatches.TryGetValue(matchId, out var match))
             return false;
-            
-        var lastThrow = match.AllThrows.LastOrDefault(t => t.PlayerId == playerId && t.LegNumber == match.CurrentLegNumber);
+
+        // Get the absolute last throw in the current leg, regardless of which player threw it
+        var lastThrow = match.AllThrows.LastOrDefault(t => t.LegNumber == match.CurrentLegNumber);
         if (lastThrow == null)
             return false;
-            
+
         // Remove the throw
         match.AllThrows.Remove(lastThrow);
-        
-        // Restore score
-        if (playerId == match.HomePlayerId)
+
+        // Restore score for the player who actually threw it
+        if (lastThrow.PlayerId == match.HomePlayerId)
             match.HomeCurrentScore = lastThrow.ScoreRemainingBefore;
         else
             match.AwayCurrentScore = lastThrow.ScoreRemainingBefore;
-            
-        // Adjust turn state
+
+        // Adjust turn state - check if we need to switch back to the previous player
         match.DartsThrown -= lastThrow.DartsUsed;
         if (match.CurrentTurnScores.Any())
             match.CurrentTurnScores.RemoveAt(match.CurrentTurnScores.Count - 1);
-            
+
+        // If undoing changed the current player (because we undid the other player's throw),
+        // we need to switch back to that player and adjust the turn state
+        if (lastThrow.PlayerId != match.CurrentPlayerId)
+        {
+            match.CurrentPlayerId = lastThrow.PlayerId;
+            // If we're switching back to previous player, we need to restore their turn state
+            var remainingDartsInTurn = match.AllThrows.Where(t =>
+                t.LegNumber == match.CurrentLegNumber &&
+                t.TurnNumber == lastThrow.TurnNumber &&
+                t.PlayerId == lastThrow.PlayerId).Sum(t => t.DartsUsed);
+            match.DartsThrown = remainingDartsInTurn;
+            match.CurrentTurnNumber = lastThrow.TurnNumber;
+
+            // Rebuild current turn scores for the restored player
+            match.CurrentTurnScores.Clear();
+            var currentTurnThrows = match.AllThrows.Where(t =>
+                t.LegNumber == match.CurrentLegNumber &&
+                t.TurnNumber == lastThrow.TurnNumber &&
+                t.PlayerId == lastThrow.PlayerId).Select(t => t.Score).ToList();
+            match.CurrentTurnScores.AddRange(currentTurnThrows);
+        }
+
         return await Task.FromResult(true);
     }
     
@@ -189,8 +212,8 @@ public class LiveMatchService : ILiveMatchService
             match.DartsThrown = 0;
             match.CurrentTurnScores.Clear();
             
-            // Switch starting player
-            match.CurrentPlayerId = match.CurrentPlayerId == match.HomePlayerId ? match.AwayPlayerId : match.HomePlayerId;
+            // Alternate starting player: home starts odd legs, away starts even legs
+            match.CurrentPlayerId = match.CurrentLegNumber % 2 == 1 ? match.HomePlayerId : match.AwayPlayerId;
         }
         
         return await Task.FromResult(match);
@@ -214,7 +237,8 @@ public class LiveMatchService : ILiveMatchService
             HomeLegsWon = match.HomeLegsWon,
             AwayLegsWon = match.AwayLegsWon,
             TimeElapsed = (DateTime.UtcNow - match.StartTime).ToString(@"hh\:mm\:ss"),
-            TournamentId = match.TournamentId
+            TournamentId = match.TournamentId,
+            UrlToRecap = "/recap/placeholder"
         };
         
         // Save to database
