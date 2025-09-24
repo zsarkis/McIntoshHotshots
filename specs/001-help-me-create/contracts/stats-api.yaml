@@ -1,0 +1,528 @@
+openapi: 3.0.3
+info:
+  title: Advanced Statistics API
+  description: API for advanced statistical viewing system with time series and head-to-head analysis
+  version: 1.0.0
+  contact:
+    name: McIntosh Hotshots Development Team
+
+servers:
+  - url: /api/v1
+
+paths:
+  /stats/player/{playerId}/timeseries:
+    get:
+      summary: Get player time series statistics
+      description: Retrieve time series data for a specific player with configurable period and metrics
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Unique identifier for the player
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [weekly, monthly, quarterly, yearly]
+            default: weekly
+          description: Time period granularity for aggregation
+        - name: metric
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [average, median, completion_rate, checkout_percentage, doubles_hit_rate]
+            default: average
+          description: Statistical metric to retrieve
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Start date for time series (ISO 8601 format)
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: End date for time series (ISO 8601 format)
+        - name: tournamentType
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by specific tournament type
+      responses:
+        '200':
+          description: Time series data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSeriesResponse'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /stats/tournament/{tournamentId}/timeseries:
+    get:
+      summary: Get tournament time series statistics
+      description: Retrieve time series data for a specific tournament
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Unique identifier for the tournament
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+            default: daily
+          description: Time period granularity for tournament data
+        - name: metric
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [average_score, median_score, participant_count, completion_rate]
+            default: average_score
+      responses:
+        '200':
+          description: Tournament time series data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSeriesResponse'
+        '404':
+          description: Tournament not found
+
+  /stats/headtohead/{player1Id}/{player2Id}:
+    get:
+      summary: Get head-to-head comparison between two players
+      description: Retrieve comprehensive head-to-head statistics and comparison data
+      parameters:
+        - name: player1Id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: player2Id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tournamentType
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by specific tournament type
+        - name: recentGames
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+          description: Number of recent games to include in form analysis
+      responses:
+        '200':
+          description: Head-to-head data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeadToHeadResponse'
+        '400':
+          description: Invalid player IDs (cannot be the same)
+        '404':
+          description: One or both players not found
+
+  /stats/player/{playerId}/metrics:
+    get:
+      summary: Get comprehensive player metrics
+      description: Retrieve all available metrics for a player including current advanced statistics
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: includeTrends
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include trend analysis in response
+      responses:
+        '200':
+          description: Player metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerMetricsResponse'
+
+  /stats/chart-data:
+    post:
+      summary: Get formatted chart data for multiple metrics
+      description: Retrieve chart-ready data formatted for Chart.js consumption
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChartDataRequest'
+      responses:
+        '200':
+          description: Chart data formatted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChartDataResponse'
+
+components:
+  schemas:
+    TimeSeriesResponse:
+      type: object
+      properties:
+        playerId:
+          type: integer
+          nullable: true
+        tournamentId:
+          type: integer
+          nullable: true
+        period:
+          type: string
+          enum: [weekly, monthly, quarterly, yearly, daily]
+        metric:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        dataPoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSeriesDataPoint'
+        metadata:
+          $ref: '#/components/schemas/TimeSeriesMetadata'
+
+    TimeSeriesDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        value:
+          type: number
+          format: decimal
+        count:
+          type: integer
+          description: Number of source records contributing to this data point
+        standardDeviation:
+          type: number
+          format: decimal
+          nullable: true
+        minValue:
+          type: number
+          format: decimal
+          nullable: true
+        maxValue:
+          type: number
+          format: decimal
+          nullable: true
+
+    TimeSeriesMetadata:
+      type: object
+      properties:
+        totalDataPoints:
+          type: integer
+        hasInsufficientData:
+          type: boolean
+          description: True if fewer than 3 data points available
+        warningMessage:
+          type: string
+          nullable: true
+        calculatedAt:
+          type: string
+          format: date-time
+
+    HeadToHeadResponse:
+      type: object
+      properties:
+        player1:
+          $ref: '#/components/schemas/PlayerSummary'
+        player2:
+          $ref: '#/components/schemas/PlayerSummary'
+        overallRecord:
+          $ref: '#/components/schemas/OverallRecord'
+        recentForm:
+          $ref: '#/components/schemas/RecentForm'
+        tournamentBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/TournamentTypeRecord'
+        averageScoreDifferential:
+          type: number
+          format: decimal
+        totalMatches:
+          type: integer
+        firstMatch:
+          type: string
+          format: date
+        lastMatch:
+          type: string
+          format: date
+
+    PlayerSummary:
+      type: object
+      properties:
+        playerId:
+          type: integer
+        playerName:
+          type: string
+        averageScore:
+          type: number
+          format: decimal
+        gamesPlayed:
+          type: integer
+
+    OverallRecord:
+      type: object
+      properties:
+        player1Wins:
+          type: integer
+        player2Wins:
+          type: integer
+        winPercentagePlayer1:
+          type: number
+          format: decimal
+        winPercentagePlayer2:
+          type: number
+          format: decimal
+
+    RecentForm:
+      type: object
+      properties:
+        recentMatches:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecentMatch'
+        player1RecentWins:
+          type: integer
+        player2RecentWins:
+          type: integer
+
+    RecentMatch:
+      type: object
+      properties:
+        matchDate:
+          type: string
+          format: date
+        player1Score:
+          type: number
+          format: decimal
+        player2Score:
+          type: number
+          format: decimal
+        winnerId:
+          type: integer
+        tournamentType:
+          type: string
+
+    TournamentTypeRecord:
+      type: object
+      properties:
+        tournamentType:
+          type: string
+        player1Wins:
+          type: integer
+        player2Wins:
+          type: integer
+        averageScoreDifferential:
+          type: number
+          format: decimal
+
+    PlayerMetricsResponse:
+      type: object
+      properties:
+        playerId:
+          type: integer
+        playerName:
+          type: string
+        currentMetrics:
+          $ref: '#/components/schemas/CurrentMetrics'
+        trends:
+          $ref: '#/components/schemas/TrendAnalysis'
+          nullable: true
+        calculatedAt:
+          type: string
+          format: date-time
+
+    CurrentMetrics:
+      type: object
+      properties:
+        averageScore:
+          type: number
+          format: decimal
+        medianScore:
+          type: number
+          format: decimal
+        completionRate:
+          type: number
+          format: decimal
+        checkoutPercentage:
+          type: number
+          format: decimal
+        doublesHitRate:
+          type: number
+          format: decimal
+        gamesPlayed:
+          type: integer
+        tournamentsParticipated:
+          type: integer
+
+    TrendAnalysis:
+      type: object
+      properties:
+        scoreTrend:
+          type: string
+          enum: [improving, declining, stable]
+        trendConfidence:
+          type: number
+          format: decimal
+          description: Statistical confidence in trend analysis (0-1)
+        improvementRate:
+          type: number
+          format: decimal
+          nullable: true
+
+    ChartDataRequest:
+      type: object
+      properties:
+        chartType:
+          type: string
+          enum: [timeseries, headtohead, comparison]
+        players:
+          type: array
+          items:
+            type: integer
+        tournaments:
+          type: array
+          items:
+            type: integer
+          nullable: true
+        metrics:
+          type: array
+          items:
+            type: string
+        period:
+          type: string
+          enum: [weekly, monthly, quarterly, yearly]
+        dateRange:
+          $ref: '#/components/schemas/DateRange'
+          nullable: true
+
+    DateRange:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    ChartDataResponse:
+      type: object
+      properties:
+        chartType:
+          type: string
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChartDataset'
+        labels:
+          type: array
+          items:
+            type: string
+        options:
+          type: object
+          description: Chart.js configuration options
+        metadata:
+          $ref: '#/components/schemas/ChartMetadata'
+
+    ChartDataset:
+      type: object
+      properties:
+        label:
+          type: string
+        data:
+          type: array
+          items:
+            type: number
+        backgroundColor:
+          type: string
+        borderColor:
+          type: string
+        tension:
+          type: number
+          format: decimal
+
+    ChartMetadata:
+      type: object
+      properties:
+        totalDataPoints:
+          type: integer
+        hasInsufficientData:
+          type: boolean
+        recommendedChartType:
+          type: string
+        performance:
+          $ref: '#/components/schemas/PerformanceMetadata'
+
+    PerformanceMetadata:
+      type: object
+      properties:
+        queryTimeMs:
+          type: integer
+        cacheHit:
+          type: boolean
+        aggregationTimeMs:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string

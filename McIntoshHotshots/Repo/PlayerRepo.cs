@@ -50,7 +50,7 @@ public class PlayerRepo : IPlayerRepo
     {
         using var connection = _connectionFactory.CreateConnection();
         var query = @"
-        INSERT INTO player (name, earnings, elo_number, preferences, user_id) 
+        INSERT INTO player (name, earnings, elo_number, preferences, user_id)
         VALUES (@Name, @Earnings, @EloNumber, @Preferences::jsonb, @UserId)
     ";
         return await connection.ExecuteAsync(query, new
@@ -68,10 +68,10 @@ public class PlayerRepo : IPlayerRepo
         using var connection = _connectionFactory.CreateConnection();
         var query = @"
         UPDATE player
-        SET name = @Name, 
-            earnings = @Earnings, 
-            elo_number = @EloNumber, 
-            preferences = @Preferences::jsonb, 
+        SET name = @Name,
+            earnings = @Earnings,
+            elo_number = @EloNumber,
+            preferences = @Preferences::jsonb,
             user_id = @UserId
         WHERE id = @Id
     ";

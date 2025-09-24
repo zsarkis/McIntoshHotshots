@@ -160,6 +160,8 @@ namespace McIntoshHotshots.Areas.Identity.Pages.Account
                         UserId = userId,
                         Name = Input.Name,
                         Preferences = JsonSerializer.Serialize(defaultNotifications),
+                        EloNumber = 1200, // Default ELO rating for new players
+                        Earnings = 0 // Default earnings for new players
                     };
                     await _playerRepo.InsertPlayerAsync(playerModel);
 
