@@ -153,11 +153,11 @@ public class LiveMatchService : ILiveMatchService
         {
             match.CurrentPlayerId = lastThrow.PlayerId;
             // If we're switching back to previous player, we need to restore their turn state
-            var remainingThrowsInTurn = match.AllThrows.Where(t =>
+            var remainingDartsInTurn = match.AllThrows.Where(t =>
                 t.LegNumber == match.CurrentLegNumber &&
                 t.TurnNumber == lastThrow.TurnNumber &&
-                t.PlayerId == lastThrow.PlayerId).Count();
-            match.DartsThrown = remainingThrowsInTurn;
+                t.PlayerId == lastThrow.PlayerId).Sum(t => t.DartsUsed);
+            match.DartsThrown = remainingDartsInTurn;
             match.CurrentTurnNumber = lastThrow.TurnNumber;
 
             // Rebuild current turn scores for the restored player
