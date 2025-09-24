@@ -189,8 +189,8 @@ public class LiveMatchService : ILiveMatchService
             match.DartsThrown = 0;
             match.CurrentTurnScores.Clear();
             
-            // Switch starting player
-            match.CurrentPlayerId = match.CurrentPlayerId == match.HomePlayerId ? match.AwayPlayerId : match.HomePlayerId;
+            // Alternate starting player: home starts odd legs, away starts even legs
+            match.CurrentPlayerId = match.CurrentLegNumber % 2 == 1 ? match.HomePlayerId : match.AwayPlayerId;
         }
         
         return await Task.FromResult(match);
@@ -214,7 +214,8 @@ public class LiveMatchService : ILiveMatchService
             HomeLegsWon = match.HomeLegsWon,
             AwayLegsWon = match.AwayLegsWon,
             TimeElapsed = (DateTime.UtcNow - match.StartTime).ToString(@"hh\:mm\:ss"),
-            TournamentId = match.TournamentId
+            TournamentId = match.TournamentId,
+            UrlToRecap = "/recap/placeholder"
         };
         
         // Save to database
