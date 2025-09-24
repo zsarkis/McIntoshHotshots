@@ -117,9 +117,10 @@
                         </div>
                         
                         <div class="input-actions">
-                            <button class="action-btn clear" @onclick="ClearInput">Clear</button>
-                            <button class="action-btn undo" @onclick="UndoLastThrow">Undo</button>
-                            <button class="action-btn submit" @onclick="() => RecordScore(inputScore)" 
+                            <button class="action-btn @(inputScore > 0 ? "clear" : "undo")" @onclick="UndoOrClearAction">
+                                @(inputScore > 0 ? "Clear" : "Undo")
+                            </button>
+                            <button class="action-btn submit" @onclick="() => RecordScore(inputScore)"
                                     disabled="@(!CanRecordScore() || inputScore < 0 || inputScore > 180)">
                                 Submit
                             </button>
@@ -387,6 +388,20 @@
         await RecordScore(score);
     }
     
+    private async Task UndoOrClearAction()
+    {
+        if (inputScore > 0)
+        {
+            // Clear the current input
+            ClearInput();
+        }
+        else
+        {
+            // Undo the last throw
+            await UndoLastThrow();
+        }
+    }
+
     private async Task UndoLastThrow()
     {
         if (currentMatch != null)
