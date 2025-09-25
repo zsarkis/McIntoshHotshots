@@ -65,93 +65,109 @@
             
             @if (!useAdvancedRuleEngine)
             {
-                <!-- Simple Score Input with Personalized Hotkeys -->
-                <div class="score-input-container">
+                <!-- Score Input with Box-like UI Layout -->
+                <div class="score-input-container box-layout">
                     @{
                         var currentPlayerHotkeys = currentMatch?.CurrentPlayerId == currentMatch?.HomePlayerId ? homePlayerHotkeys : awayPlayerHotkeys;
                     }
-                    
-                    <!-- Left Side - Low Scores -->
-                    <div class="personalized-hotkeys left">
-                        @if (currentPlayerHotkeys?.LowScores?.Any() == true)
+
+                    <!-- Score Display -->
+                    <div class="score-display">
+                        <div class="input-score">@inputScore</div>
+                        @if (currentMatch.CurrentTurnScores.Any())
                         {
-                            @foreach (var score in currentPlayerHotkeys.LowScores)
-                            {
-                                <button class="personal-hotkey-btn low" @onclick="() => SetAndSubmitScore(score)"
-                                        disabled="@(!CanRecordScore())">
-                                    @score
-                                </button>
-                            }
+                            <div class="turn-breakdown">@string.Join(" + ", currentMatch.CurrentTurnScores) = @currentMatch.CurrentTurnScores.Sum()</div>
                         }
                     </div>
-                    
-                    <!-- Main Score Input -->
-                    <div class="score-input">
-                        <div class="score-display">
-                            <div class="input-score">@inputScore</div>
-                            @if (currentMatch.CurrentTurnScores.Any())
+
+                    <!-- Box Layout Container -->
+                    <div class="scoring-box">
+                        <!-- Left Side Hotkeys -->
+                        <div class="personalized-hotkeys left">
+                            @if (currentPlayerHotkeys?.LowScores?.Any() == true)
                             {
-                                <div class="turn-breakdown">@string.Join(" + ", currentMatch.CurrentTurnScores) = @currentMatch.CurrentTurnScores.Sum()</div>
+                                @foreach (var score in currentPlayerHotkeys.LowScores)
+                                {
+                                    <button class="personal-hotkey-btn low" @onclick="() => SetAndSubmitScore(score)"
+                                            disabled="@(!CanRecordScore())">
+                                        @score
+                                    </button>
+                                }
                             }
                         </div>
-                        
-                        <!-- Simple Number Pad -->
-                        <div class="number-pad">
-                            @for (int row = 0; row < 4; row++)
-                            {
+
+                        <!-- Center - Number Pad and Actions -->
+                        <div class="center-input">
+                            <!-- Simple Number Pad (standard layout) -->
+                            <div class="number-pad">
+                                <!-- Row 1: 1, 2, 3 -->
                                 <div class="number-row">
-                                    @if (row < 3)
-                                    {
-                                        @for (int col = 1; col <= 3; col++)
-                                        {
-                                            int number = (2 - row) * 3 + col;
-                                            <button class="num-btn" @onclick="() => AppendDigit(number)">@number</button>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <button class="num-btn zero" @onclick="() => AppendDigit(0)">0</button>
-                                    }
+                                    <button class="num-btn" @onclick="() => AppendDigit(1)">1</button>
+                                    <button class="num-btn" @onclick="() => AppendDigit(2)">2</button>
+                                    <button class="num-btn" @onclick="() => AppendDigit(3)">3</button>
                                 </div>
-                            }
+                                <!-- Row 2: 4, 5, 6 -->
+                                <div class="number-row">
+                                    <button class="num-btn" @onclick="() => AppendDigit(4)">4</button>
+                                    <button class="num-btn" @onclick="() => AppendDigit(5)">5</button>
+                                    <button class="num-btn" @onclick="() => AppendDigit(6)">6</button>
+                                </div>
+                                <!-- Row 3: 7, 8, 9 -->
+                                <div class="number-row">
+                                    <button class="num-btn" @onclick="() => AppendDigit(7)">7</button>
+                                    <button class="num-btn" @onclick="() => AppendDigit(8)">8</button>
+                                    <button class="num-btn" @onclick="() => AppendDigit(9)">9</button>
+                                </div>
+                                <!-- Row 4: Undo, 0, Submit -->
+                                <div class="number-row">
+                                    <button class="action-btn @(inputScore > 0 ? "clear" : "undo")" @onclick="UndoOrClearAction">
+                                        @(inputScore > 0 ? "Clear" : "Undo")
+                                    </button>
+                                    <button class="num-btn" @onclick="() => AppendDigit(0)">0</button>
+                                    <button class="action-btn submit" @onclick="() => RecordScore(inputScore)"
+                                            disabled="@(!CanRecordScore() || inputScore < 0 || inputScore > 180)">
+                                        Submit
+                                    </button>
+                                </div>
+                                <!-- Row 5: 100, 180, 140 -->
+                                <div class="number-row">
+                                    <button class="action-btn submit" @onclick="() => SetAndSubmitScore(100)"
+                                            disabled="@(!CanRecordScore())">
+                                        100
+                                    </button>
+                                    <button class="action-btn submit" @onclick="() => SetAndSubmitScore(180)"
+                                            disabled="@(!CanRecordScore())">
+                                        180
+                                    </button>
+                                    <button class="action-btn submit" @onclick="() => SetAndSubmitScore(140)"
+                                            disabled="@(!CanRecordScore())">
+                                        140
+                                    </button>
+                                </div>
+                                <!-- Row 6: MISS -->
+                                <div class="number-row">
+                                    <button class="action-btn miss" @onclick="() => SetAndSubmitScore(0)"
+                                            disabled="@(!CanRecordScore())">
+                                        MISS
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <div class="input-actions">
-                            <button class="action-btn @(inputScore > 0 ? "clear" : "undo")" @onclick="UndoOrClearAction">
-                                @(inputScore > 0 ? "Clear" : "Undo")
-                            </button>
-                            <button class="action-btn submit" @onclick="() => RecordScore(inputScore)"
-                                    disabled="@(!CanRecordScore() || inputScore < 0 || inputScore > 180)">
-                                Submit
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Side - High Scores -->
-                    <div class="personalized-hotkeys right">
-                        @if (currentPlayerHotkeys?.HighScores?.Any() == true)
-                        {
-                            @foreach (var score in currentPlayerHotkeys.HighScores)
+
+                        <!-- Right Side Hotkeys -->
+                        <div class="personalized-hotkeys right">
+                            @if (currentPlayerHotkeys?.HighScores?.Any() == true)
                             {
-                                <button class="personal-hotkey-btn high" @onclick="() => SetAndSubmitScore(score)"
-                                        disabled="@(!CanRecordScore())">
-                                    @score
-                                </button>
+                                @foreach (var score in currentPlayerHotkeys.HighScores)
+                                {
+                                    <button class="personal-hotkey-btn high" @onclick="() => SetAndSubmitScore(score)"
+                                            disabled="@(!CanRecordScore())">
+                                        @score
+                                    </button>
+                                }
                             }
-                        }
+                        </div>
                     </div>
-                </div>
-                
-                <!-- Quick Score Buttons -->
-                <div class="quick-scores">
-                    @foreach (var score in new[] { 180, 140, 100, 81, 60, 45, 26, 20, 0 })
-                    {
-                        <button class="quick-score-btn @(score == 0 ? "miss" : "")" 
-                                @onclick="() => SetAndSubmitScore(score)" 
-                                disabled="@(!CanRecordScore())">
-                            @(score == 0 ? "MISS" : score.ToString())
-                        </button>
-                    }
                 </div>
             }
             else
