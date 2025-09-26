@@ -22,9 +22,9 @@
     else
     {
         <!-- Main Scoring Interface -->
-        <div class="scoring-board">
+        <div class="scoring-board" role="main">
             <!-- Header with scores -->
-            <div class="score-header">
+            <div class="score-header" aria-label="Score summary">
                 <div class="player-section home @(currentMatch.IsCurrentPlayerTurn(currentMatch.HomePlayerId) ? "active" : "")">
                     <div class="player-label">Home</div>
                     <div class="player-name">@currentMatch.HomePlayerName</div>
@@ -47,175 +47,178 @@
             </div>
             
             <!-- Game Status -->
-            <div class="game-status">
-                <div class="current-leg">@currentMatch.HomeLegsWon - @currentMatch.AwayLegsWon Leg Count</div>
-                <div class="player-turn">@currentMatch.GetPlayerName(currentMatch.CurrentPlayerId)</div>
-                <div class="dart-indicators">
+            <div class="game-status" aria-label="Turn status">
+                <div class="current-leg" aria-live="polite">@currentMatch.HomeLegsWon - @currentMatch.AwayLegsWon Leg Count</div>
+                <div class="player-turn" aria-live="assertive">@currentMatch.GetPlayerName(currentMatch.CurrentPlayerId)</div>
+                <div class="dart-indicators" role="list" aria-label="Darts thrown this turn">
                     @for (int i = 1; i <= 3; i++)
                     {
-                        <div class="dart-dot @(i <= currentMatch.DartsThrown ? "thrown" : "")"></div>
+                        <div class="dart-dot @(i <= currentMatch.DartsThrown ? "thrown" : "")" role="listitem" aria-hidden="true"></div>
                     }
                 </div>
             </div>
             
-            @if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <div class="error-alert">@errorMessage</div>
-            }
-            
-            @if (!useAdvancedRuleEngine)
-            {
-                <!-- Score Input with Box-like UI Layout -->
-                <div class="score-input-container box-layout">
-                    @{
-                        var currentPlayerHotkeys = currentMatch?.CurrentPlayerId == currentMatch?.HomePlayerId ? homePlayerHotkeys : awayPlayerHotkeys;
-                    }
-
-                    <!-- Score Display -->
-                    <div class="score-display">
-                        <div class="input-score">@inputScore</div>
-                        @if (currentMatch.CurrentTurnScores.Any())
-                        {
-                            <div class="turn-breakdown">@string.Join(" + ", currentMatch.CurrentTurnScores) = @currentMatch.CurrentTurnScores.Sum()</div>
-                        }
+            <div class="input-area">
+                <div class="input-area-header">
+                    <div class="mode-toggle">
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="useAdvancedRuleEngine" @bind:after="OnRuleEngineToggled" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Advanced Mode</span>
+                        </label>
                     </div>
+                </div>
 
-                    <!-- Box Layout Container -->
-                    <div class="scoring-box">
-                        <!-- Left Side Hotkeys -->
-                        <div class="personalized-hotkeys left">
-                            @if (currentPlayerHotkeys?.LowScores?.Any() == true)
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="error-alert" role="alert">@errorMessage</div>
+                }
+
+                @if (!useAdvancedRuleEngine)
+                {
+                    <!-- Score Input with Box-like UI Layout -->
+                    <div class="score-input-container box-layout">
+                        @{
+                            var currentPlayerHotkeys = currentMatch?.CurrentPlayerId == currentMatch?.HomePlayerId ? homePlayerHotkeys : awayPlayerHotkeys;
+                        }
+
+                        <!-- Score Display -->
+                        <div class="score-display">
+                            <div class="input-score" aria-live="polite">@inputScore</div>
+                            @if (currentMatch.CurrentTurnScores.Any())
                             {
-                                @foreach (var score in currentPlayerHotkeys.LowScores)
-                                {
-                                    <button class="personal-hotkey-btn low" @onclick="() => SetAndSubmitScore(score)"
-                                            disabled="@(!CanRecordScore())">
-                                        @score
-                                    </button>
-                                }
+                                <div class="turn-breakdown">@string.Join(" + ", currentMatch.CurrentTurnScores) = @currentMatch.CurrentTurnScores.Sum()</div>
                             }
                         </div>
 
-                        <!-- Center - Number Pad and Actions -->
-                        <div class="center-input">
-                            <!-- Simple Number Pad (standard layout) -->
-                            <div class="number-pad">
-                                <!-- Row 1: 1, 2, 3 -->
-                                <div class="number-row">
-                                    <button class="num-btn" @onclick="() => AppendDigit(1)">1</button>
-                                    <button class="num-btn" @onclick="() => AppendDigit(2)">2</button>
-                                    <button class="num-btn" @onclick="() => AppendDigit(3)">3</button>
-                                </div>
-                                <!-- Row 2: 4, 5, 6 -->
-                                <div class="number-row">
-                                    <button class="num-btn" @onclick="() => AppendDigit(4)">4</button>
-                                    <button class="num-btn" @onclick="() => AppendDigit(5)">5</button>
-                                    <button class="num-btn" @onclick="() => AppendDigit(6)">6</button>
-                                </div>
-                                <!-- Row 3: 7, 8, 9 -->
-                                <div class="number-row">
-                                    <button class="num-btn" @onclick="() => AppendDigit(7)">7</button>
-                                    <button class="num-btn" @onclick="() => AppendDigit(8)">8</button>
-                                    <button class="num-btn" @onclick="() => AppendDigit(9)">9</button>
-                                </div>
-                                <!-- Row 4: Undo, 0, Submit -->
-                                <div class="number-row">
-                                    <button class="action-btn @(inputScore > 0 ? "clear" : "undo")" @onclick="UndoOrClearAction">
-                                        @(inputScore > 0 ? "Clear" : "Undo")
-                                    </button>
-                                    <button class="num-btn" @onclick="() => AppendDigit(0)">0</button>
-                                    <button class="action-btn submit" @onclick="() => RecordScore(inputScore)"
-                                            disabled="@(!CanRecordScore() || inputScore < 0 || inputScore > 180)">
-                                        Submit
-                                    </button>
-                                </div>
-                                <!-- Row 5: 100, 180, 140 -->
-                                <div class="number-row">
-                                    <button class="action-btn submit" @onclick="() => SetAndSubmitScore(100)"
-                                            disabled="@(!CanRecordScore())">
-                                        100
-                                    </button>
-                                    <button class="action-btn submit" @onclick="() => SetAndSubmitScore(180)"
-                                            disabled="@(!CanRecordScore())">
-                                        180
-                                    </button>
-                                    <button class="action-btn submit" @onclick="() => SetAndSubmitScore(140)"
-                                            disabled="@(!CanRecordScore())">
-                                        140
-                                    </button>
-                                </div>
-                                <!-- Row 6: MISS -->
-                                <div class="number-row">
-                                    <button class="action-btn miss" @onclick="() => SetAndSubmitScore(0)"
-                                            disabled="@(!CanRecordScore())">
-                                        MISS
-                                    </button>
+                        <!-- Box Layout Container -->
+                        <div class="scoring-box">
+                            <!-- Left Side Hotkeys -->
+                            <div class="personalized-hotkeys left">
+                                @if (currentPlayerHotkeys?.LowScores?.Any() == true)
+                                {
+                                    @foreach (var score in currentPlayerHotkeys.LowScores)
+                                    {
+                                        <button class="personal-hotkey-btn low" @onclick="() => SetAndSubmitScore(score)"
+                                                disabled="@(!CanRecordScore())">
+                                            @score
+                                        </button>
+                                    }
+                                }
+                            </div>
+
+                            <!-- Center - Number Pad and Actions -->
+                            <div class="center-input">
+                                <!-- Simple Number Pad (standard layout) -->
+                                <div class="number-pad">
+                                    <!-- Row 1: 1, 2, 3 -->
+                                    <div class="number-row">
+                                        <button class="num-btn" @onclick="() => AppendDigit(1)">1</button>
+                                        <button class="num-btn" @onclick="() => AppendDigit(2)">2</button>
+                                        <button class="num-btn" @onclick="() => AppendDigit(3)">3</button>
+                                    </div>
+                                    <!-- Row 2: 4, 5, 6 -->
+                                    <div class="number-row">
+                                        <button class="num-btn" @onclick="() => AppendDigit(4)">4</button>
+                                        <button class="num-btn" @onclick="() => AppendDigit(5)">5</button>
+                                        <button class="num-btn" @onclick="() => AppendDigit(6)">6</button>
+                                    </div>
+                                    <!-- Row 3: 7, 8, 9 -->
+                                    <div class="number-row">
+                                        <button class="num-btn" @onclick="() => AppendDigit(7)">7</button>
+                                        <button class="num-btn" @onclick="() => AppendDigit(8)">8</button>
+                                        <button class="num-btn" @onclick="() => AppendDigit(9)">9</button>
+                                    </div>
+                                    <!-- Row 4: Undo, 0, Submit -->
+                                    <div class="number-row">
+                                        <button class="action-btn @(inputScore > 0 ? "clear" : "undo")" @onclick="UndoOrClearAction">
+                                            @(inputScore > 0 ? "Clear" : "Undo")
+                                        </button>
+                                        <button class="num-btn" @onclick="() => AppendDigit(0)">0</button>
+                                        <button class="action-btn submit" @onclick="() => RecordScore(inputScore)"
+                                                disabled="@(!CanRecordScore() || inputScore < 0 || inputScore > 180)">
+                                            Submit
+                                        </button>
+                                    </div>
+                                    <!-- Row 5: 100, 180, 140 -->
+                                    <div class="number-row">
+                                        <button class="action-btn submit" @onclick="() => SetAndSubmitScore(100)"
+                                                disabled="@(!CanRecordScore())">
+                                            100
+                                        </button>
+                                        <button class="action-btn submit" @onclick="() => SetAndSubmitScore(180)"
+                                                disabled="@(!CanRecordScore())">
+                                            180
+                                        </button>
+                                        <button class="action-btn submit" @onclick="() => SetAndSubmitScore(140)"
+                                                disabled="@(!CanRecordScore())">
+                                            140
+                                        </button>
+                                    </div>
+                                    <!-- Row 6: MISS -->
+                                    <div class="number-row">
+                                        <button class="action-btn miss" @onclick="() => SetAndSubmitScore(0)"
+                                                disabled="@(!CanRecordScore())">
+                                            MISS
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Right Side Hotkeys -->
-                        <div class="personalized-hotkeys right">
-                            @if (currentPlayerHotkeys?.HighScores?.Any() == true)
-                            {
-                                @foreach (var score in currentPlayerHotkeys.HighScores)
+                            <!-- Right Side Hotkeys -->
+                            <div class="personalized-hotkeys right">
+                                @if (currentPlayerHotkeys?.HighScores?.Any() == true)
                                 {
-                                    <button class="personal-hotkey-btn high" @onclick="() => SetAndSubmitScore(score)"
-                                            disabled="@(!CanRecordScore())">
-                                        @score
-                                    </button>
+                                    @foreach (var score in currentPlayerHotkeys.HighScores)
+                                    {
+                                        <button class="personal-hotkey-btn high" @onclick="() => SetAndSubmitScore(score)"
+                                                disabled="@(!CanRecordScore())">
+                                            @score
+                                        </button>
+                                    }
                                 }
-                            }
+                            </div>
                         </div>
                     </div>
-                </div>
-            }
-            else
-            {
-                <!-- Advanced Individual Dart Input -->
-                <div class="advanced-input">
-                    <div class="dart-input-header">
-                        <h3>Individual Dart Input</h3>
-                        <div class="current-player-info">
-                            @dartsEngine?.GetCurrentPlayer().Id - Score: @dartsEngine?.GetRemainingScore(dartsEngine.GetCurrentPlayer().Id)
+                }
+                else
+                {
+                    <!-- Advanced Individual Dart Input -->
+                    <div class="advanced-input">
+                        <div class="dart-input-header">
+                            <h3>Individual Dart Input</h3>
+                            <div class="current-player-info">
+                                @dartsEngine?.GetCurrentPlayer().Id - Score: @dartsEngine?.GetRemainingScore(dartsEngine.GetCurrentPlayer().Id)
+                            </div>
+                        </div>
+                        
+                        <div class="dart-controls">
+                            <select @bind="selectedSegment" class="segment-select">
+                                <option value="">Segment</option>
+                                @for (int i = 1; i <= 20; i++)
+                                {
+                                    <option value="@i">@i</option>
+                                }
+                                <option value="25">25</option>
+                                <option value="bull">Bull</option>
+                            </select>
+                            
+                            <select @bind="selectedRing" class="ring-select">
+                                <option value="">Ring</option>
+                                <option value="single">Single</option>
+                                <option value="double">Double</option>
+                                <option value="treble">Treble</option>
+                                <option value="fat-single">Fat Single</option>
+                                <option value="skinny-single">Skinny Single</option>
+                            </select>
+                            
+                            <button class="record-dart" @onclick="RecordIndividualDart" 
+                                    disabled="@(string.IsNullOrEmpty(selectedSegment) || string.IsNullOrEmpty(selectedRing))">
+                                Record Dart
+                            </button>
                         </div>
                     </div>
-                    
-                    <div class="dart-controls">
-                        <select @bind="selectedSegment" class="segment-select">
-                            <option value="">Segment</option>
-                            @for (int i = 1; i <= 20; i++)
-                            {
-                                <option value="@i">@i</option>
-                            }
-                            <option value="25">25</option>
-                            <option value="bull">Bull</option>
-                        </select>
-                        
-                        <select @bind="selectedRing" class="ring-select">
-                            <option value="">Ring</option>
-                            <option value="single">Single</option>
-                            <option value="double">Double</option>
-                            <option value="treble">Treble</option>
-                            <option value="fat-single">Fat Single</option>
-                            <option value="skinny-single">Skinny Single</option>
-                        </select>
-                        
-                        <button class="record-dart" @onclick="RecordIndividualDart" 
-                                disabled="@(string.IsNullOrEmpty(selectedSegment) || string.IsNullOrEmpty(selectedRing))">
-                            Record Dart
-                        </button>
-                    </div>
-                </div>
-            }
-            
-            <!-- Mode Toggle -->
-            <div class="mode-toggle">
-                <label class="toggle-switch">
-                    <input type="checkbox" @bind="useAdvancedRuleEngine" @bind:after="OnRuleEngineToggled" />
-                    <span class="toggle-slider"></span>
-                    <span class="toggle-label">Advanced Mode</span>
-                </label>
+                }
             </div>
             
             <!-- Match Controls -->
