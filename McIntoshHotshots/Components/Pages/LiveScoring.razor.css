@@ -313,20 +313,31 @@
 
 .scoring-box {
     display: grid;
-    grid-template-columns: auto auto auto;
-    gap: 8px;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--spacing-sm);
     align-items: start;
     justify-content: center;
     width: 100%;
-    max-width: 500px;
+    max-width: 600px;
     margin: 0 auto;
+    /* Tablet-optimized compact layout */
+    padding: var(--spacing-sm);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-primary);
 }
 
 .center-input {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-md);
     align-items: center;
+    padding: var(--spacing-md);
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--border-secondary);
+    /* Tablet-optimized center focus */
+    box-shadow: var(--shadow-md);
 }
 
 .bottom-quick-scores {
@@ -417,10 +428,10 @@
 
 .number-pad {
     display: grid;
-    grid-template-columns: repeat(3, 70px);
+    grid-template-columns: repeat(3, 80px);
     gap: var(--spacing-sm);
     justify-content: center;
-    max-width: 250px;
+    max-width: 280px;
 }
 
 .number-row {
@@ -428,19 +439,21 @@
 }
 
 .num-btn {
-    width: 70px;
-    height: 60px;
+    width: 80px;
+    height: 70px;
     background: var(--bg-surface);
-    border: 1px solid var(--border-primary);
+    border: 2px solid var(--border-primary);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-size: 1.5rem;
+    font-size: 1.625rem;
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Enhanced tablet touch targets */
+    box-shadow: var(--shadow-sm);
 }
 
 .num-btn:hover {
@@ -466,17 +479,19 @@
 
 .action-btn {
     padding: var(--spacing-sm);
-    border: 1px solid var(--border-primary);
+    border: 2px solid var(--border-primary);
     border-radius: var(--radius-md);
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);
-    font-size: 0.875rem;
-    width: 70px;
-    height: 60px;
+    font-size: 0.9rem;
+    width: 80px;
+    height: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Enhanced tablet touch targets */
+    box-shadow: var(--shadow-sm);
 }
 
 .action-btn.clear {
@@ -515,24 +530,27 @@
     transform: none;
 }
 
-/* Personalized Hotkeys - Side Layout */
+/* Personalized Hotkeys - Tablet Optimized Side Layout */
 .personalized-hotkeys {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
-    min-width: 80px;
-    padding: var(--spacing-md);
-    background: var(--bg-elevated);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-primary);
+    min-width: 90px;
+    max-width: 120px;
+    padding: var(--spacing-sm);
+    background: transparent;
+    border-radius: var(--radius-md);
+    /* Remove individual backgrounds for cleaner tablet layout */
 }
 
 .personalized-hotkeys.left {
     border-left: 3px solid var(--accent-success);
+    padding-left: var(--spacing-md);
 }
 
 .personalized-hotkeys.right {
     border-right: 3px solid var(--accent-primary);
+    padding-right: var(--spacing-md);
 }
 
 .hotkey-side-label {
@@ -556,11 +574,14 @@
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);
-    font-size: 0.875rem;
-    min-height: 44px;
+    font-size: 0.9rem;
+    min-height: 60px;
+    min-width: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Enhanced tablet touch targets */
+    box-shadow: var(--shadow-sm);
 }
 
 .personal-hotkey-btn.low:hover:not(:disabled) {
@@ -580,8 +601,39 @@
 }
 
 .personal-hotkey-btn:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    transform: scale(0.95);
+    box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Tablet-specific touch improvements */
+@media (hover: none) and (pointer: coarse) {
+    /* Remove hover effects on touch devices */
+    .num-btn:hover,
+    .action-btn:hover:not(:disabled),
+    .personal-hotkey-btn:hover:not(:disabled) {
+        transform: none;
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* Enhanced touch feedback */
+    .num-btn:active,
+    .action-btn:active:not(:disabled),
+    .personal-hotkey-btn:active:not(:disabled) {
+        transform: scale(0.95);
+        box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.3);
+        transition: transform 0.1s ease;
+    }
+
+    /* Slightly larger minimum touch targets for touch devices */
+    .personal-hotkey-btn {
+        min-height: 65px;
+        min-width: 75px;
+    }
+
+    .num-btn, .action-btn {
+        min-width: 80px;
+        min-height: 70px;
+    }
 }
 
 .personal-hotkey-btn:disabled {
@@ -1045,47 +1097,122 @@
     box-shadow: var(--shadow-lg);
 }
 
-/* Tablet Optimizations */
+/* Tablet Optimizations - Landscape and Portrait */
 @media (max-width: 1024px) and (min-width: 769px) {
     .scoring-board {
         grid-template-rows: auto auto 1fr auto;
-        gap: var(--spacing-sm);
-        padding: var(--spacing-sm);
+        gap: var(--spacing-md);
+        padding: var(--spacing-md);
+        max-height: 100vh;
     }
-    
-    .score-input {
-        grid-template-columns: 1fr 1.5fr;
+
+    .scoring-box {
+        max-width: 700px;
         gap: var(--spacing-md);
         padding: var(--spacing-md);
     }
-    
+
+    .center-input {
+        gap: var(--spacing-lg);
+        padding: var(--spacing-lg);
+    }
+
+    .number-pad {
+        grid-template-columns: repeat(3, 85px);
+        gap: var(--spacing-md);
+        max-width: 300px;
+    }
+
+    .num-btn {
+        width: 85px;
+        height: 75px;
+        font-size: 1.75rem;
+        border-width: 2px;
+    }
+
+    .action-btn {
+        width: 85px;
+        height: 75px;
+        font-size: 1rem;
+        border-width: 2px;
+    }
+
     .personalized-hotkeys {
-        min-width: 70px;
-        padding: var(--spacing-sm);
+        min-width: 95px;
+        max-width: 130px;
+        gap: var(--spacing-sm);
     }
-    
+
     .personal-hotkey-btn {
-        min-height: 36px;
-        font-size: 0.75rem;
-        padding: var(--spacing-xs);
-    }
-    
-    .quick-scores {
-        grid-template-columns: repeat(4, 1fr);
+        min-height: 65px;
+        min-width: 75px;
+        font-size: 1rem;
         padding: var(--spacing-sm);
     }
-    
+
     .input-score {
-        font-size: 3rem;
+        font-size: 3.5rem;
+        margin-bottom: var(--spacing-md);
     }
-    
-    .calculator-numbers {
-        grid-template-columns: repeat(5, 1fr);
-        max-height: 180px;
+
+    .score-display {
+        padding: var(--spacing-lg);
     }
-    
-    .calculator-total {
-        font-size: 2.5rem;
+
+    /* Enhanced touch feedback for tablet */
+    .num-btn:active, .action-btn:active, .personal-hotkey-btn:active {
+        transform: scale(0.95);
+        box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* Tablet Portrait Optimizations */
+@media (max-width: 1024px) and (min-width: 769px) and (orientation: portrait) {
+    .scoring-box {
+        max-width: 600px;
+        grid-template-columns: auto 1fr auto;
+        gap: var(--spacing-sm);
+    }
+
+    .personalized-hotkeys {
+        min-width: 85px;
+        max-width: 110px;
+    }
+
+    .personal-hotkey-btn {
+        min-height: 55px;
+        min-width: 65px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Large Tablet / Small Desktop Optimizations */
+@media (max-width: 1200px) and (min-width: 1025px) {
+    .scoring-box {
+        max-width: 800px;
+        gap: var(--spacing-lg);
+    }
+
+    .personalized-hotkeys {
+        min-width: 110px;
+        max-width: 150px;
+    }
+
+    .number-pad {
+        grid-template-columns: repeat(3, 90px);
+        gap: var(--spacing-lg);
+    }
+
+    .num-btn, .action-btn {
+        width: 90px;
+        height: 80px;
+        font-size: 1.875rem;
+    }
+
+    .personal-hotkey-btn {
+        min-height: 70px;
+        min-width: 85px;
+        font-size: 1.125rem;
     }
 }
 
