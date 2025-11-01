@@ -1,0 +1,173 @@
+@page "/chart-test"
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Chart.js Integration Test</PageTitle>
+
+<div class="chart-container">
+    <div class="chart-header">
+        <div>
+            <h3 class="chart-title">Chart.js Integration Test</h3>
+            <p class="chart-subtitle">Verifying Chart.js setup for statistics visualization</p>
+        </div>
+        <div class="chart-controls">
+            <button class="chart-control-btn @(chartType == "line" ? "active" : "")" @onclick="ChangeToLineChart">
+                Line
+            </button>
+            <button class="chart-control-btn @(chartType == "bar" ? "active" : "")" @onclick="ChangeToBarChart">
+                Bar
+            </button>
+        </div>
+    </div>
+
+    <div class="chart-wrapper">
+        <canvas id="testChart" class="chart-canvas"></canvas>
+    </div>
+
+    <div class="chart-stats">
+        <div class="chart-stat-card">
+            <div class="chart-stat-label">Chart Type</div>
+            <div class="chart-stat-value">@chartType</div>
+        </div>
+        <div class="chart-stat-card">
+            <div class="chart-stat-label">Data Points</div>
+            <div class="chart-stat-value">@sampleData.Count</div>
+        </div>
+        <div class="chart-stat-card">
+            <div class="chart-stat-label">Status</div>
+            <div class="chart-stat-value" style="color: var(--accent-success);">Active</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string chartType = "line";
+    private List<decimal> sampleData = new List<decimal> { 45, 52, 48, 55, 60, 58, 62 };
+    private List<string> sampleLabels = new List<string> { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul" };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CreateChart();
+        }
+    }
+
+    private async Task CreateChart()
+    {
+        var config = new
+        {
+            type = chartType,
+            data = new
+            {
+                labels = sampleLabels,
+                datasets = new[]
+                {
+                    new
+                    {
+                        label = "Average Score",
+                        data = sampleData,
+                        borderColor = "#4f46e5",
+                        backgroundColor = chartType == "bar" ? "rgba(79, 70, 229, 0.7)" : "rgba(79, 70, 229, 0.1)",
+                        borderWidth = 2,
+                        fill = chartType == "line",
+                        tension = 0.4
+                    }
+                }
+            },
+            options = new
+            {
+                responsive = true,
+                maintainAspectRatio = false,
+                plugins = new
+                {
+                    legend = new
+                    {
+                        display = true,
+                        labels = new
+                        {
+                            color = "#ffffff",
+                            font = new
+                            {
+                                family = "Inter",
+                                size = 12
+                            }
+                        }
+                    },
+                    tooltip = new
+                    {
+                        backgroundColor = "#212129",
+                        borderColor = "rgba(255, 255, 255, 0.12)",
+                        borderWidth = 1,
+                        titleColor = "#ffffff",
+                        bodyColor = "#b8b8c4",
+                        padding = 12,
+                        cornerRadius = 8
+                    }
+                },
+                scales = new
+                {
+                    x = new
+                    {
+                        grid = new
+                        {
+                            color = "rgba(255, 255, 255, 0.08)",
+                            borderColor = "rgba(255, 255, 255, 0.12)"
+                        },
+                        ticks = new
+                        {
+                            color = "#b8b8c4",
+                            font = new
+                            {
+                                family = "Inter",
+                                size = 11
+                            }
+                        }
+                    },
+                    y = new
+                    {
+                        grid = new
+                        {
+                            color = "rgba(255, 255, 255, 0.08)",
+                            borderColor = "rgba(255, 255, 255, 0.12)"
+                        },
+                        ticks = new
+                        {
+                            color = "#b8b8c4",
+                            font = new
+                            {
+                                family = "Inter",
+                                size = 11
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("chartInterop.createChart", "testChart", config);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating chart: {ex.Message}");
+        }
+    }
+
+    private async Task ChangeChartType(string newType)
+    {
+        chartType = newType;
+        await CreateChart();
+    }
+
+    private async Task ChangeToLineChart()
+    {
+        await ChangeChartType("line");
+    }
+
+    private async Task ChangeToBarChart()
+    {
+        await ChangeChartType("bar");
+    }
+}
