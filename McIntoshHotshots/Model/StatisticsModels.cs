@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace McIntoshHotshots.Model;
 
@@ -153,7 +152,7 @@ public class ChartDataset
     public string BackgroundColor { get; set; } = string.Empty;
     public int BorderWidth { get; set; } = 2;
     public bool Fill { get; set; } = false;
-    public string? Tension { get; set; }
+    public decimal? Tension { get; set; }
 }
 
 /// <summary>

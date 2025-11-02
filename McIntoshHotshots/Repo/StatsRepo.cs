@@ -74,11 +74,16 @@ public class StatsRepo : IStatsRepo
                 FROM leg l
                 JOIN player_matches pm ON l.match_id = pm.id
             ),
-            throw_stats AS (
+            throw_stats_agg AS (
                 SELECT
-                    ld.score,
-                    ld.darts_used,
-                    ld.score_remaining_before_throw
+                    ROUND(AVG(ld.score)::numeric, 2) as avg_score,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ld.score) as median_score,
+                    MAX(ld.score) as max_score,
+                    MIN(CASE WHEN ld.score > 0 THEN ld.score END) as min_score,
+                    COUNT(CASE WHEN ld.score_remaining_before_throw <= 170 AND ld.darts_used > 0 THEN 1 END) as checkout_attempts,
+                    COUNT(CASE WHEN ld.score_remaining_before_throw <= 170 THEN 1 END) as checkout_opportunities,
+                    COUNT(CASE WHEN ld.score >= 40 THEN 1 END) as doubles_hit,
+                    COUNT(*) as total_throws
                 FROM leg_detail ld
                 JOIN leg l ON ld.leg_id = l.id
                 JOIN player_matches pm ON l.match_id = pm.id
@@ -92,36 +97,36 @@ public class StatsRepo : IStatsRepo
 
                 -- Match Statistics
                 COUNT(DISTINCT pm.id) as matches_played,
-                SUM(CASE WHEN pm.is_win THEN 1 ELSE 0 END) as matches_won,
-                SUM(CASE WHEN NOT pm.is_win THEN 1 ELSE 0 END) as matches_lost,
+                COUNT(DISTINCT CASE WHEN pm.is_win THEN pm.id END) as matches_won,
+                COUNT(DISTINCT CASE WHEN NOT pm.is_win THEN pm.id END) as matches_lost,
                 CASE
                     WHEN COUNT(DISTINCT pm.id) > 0
-                    THEN ROUND(CAST(SUM(CASE WHEN pm.is_win THEN 1 ELSE 0 END) AS NUMERIC) / COUNT(DISTINCT pm.id) * 100, 2)
+                    THEN ROUND(CAST(COUNT(DISTINCT CASE WHEN pm.is_win THEN pm.id END) AS NUMERIC) / COUNT(DISTINCT pm.id) * 100, 2)
                     ELSE 0
                 END as win_rate,
 
                 -- Scoring Metrics
-                COALESCE(ROUND(AVG(ts.score)::numeric, 2), 0) as average_score,
-                COALESCE(ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ts.score)::numeric, 2), 0) as median_score,
-                COALESCE(MAX(ts.score), 0) as highest_score,
-                COALESCE(MIN(CASE WHEN ts.score > 0 THEN ts.score END), 0) as lowest_score,
+                COALESCE(tsa.avg_score, 0) as average_score,
+                COALESCE(ROUND(tsa.median_score::numeric, 2), 0) as median_score,
+                COALESCE(tsa.max_score, 0) as highest_score,
+                COALESCE(tsa.min_score, 0) as lowest_score,
 
-                -- Advanced Metrics (placeholders - will need refinement based on actual checkout logic)
+                -- Advanced Metrics
                 COALESCE(ROUND(
-                    CAST(COUNT(CASE WHEN ts.score_remaining_before_throw <= 170 AND ts.darts_used > 0 THEN 1 END) AS NUMERIC) /
-                    NULLIF(COUNT(CASE WHEN ts.score_remaining_before_throw <= 170 THEN 1 END), 0) * 100, 2
+                    CAST(tsa.checkout_attempts AS NUMERIC) /
+                    NULLIF(tsa.checkout_opportunities, 0) * 100, 2
                 ), 0) as checkout_percentage,
 
                 COALESCE(ROUND(
-                    CAST(COUNT(CASE WHEN ts.score >= 40 THEN 1 END) AS NUMERIC) /
-                    NULLIF(COUNT(*), 0) * 100, 2
+                    CAST(tsa.doubles_hit AS NUMERIC) /
+                    NULLIF(tsa.total_throws, 0) * 100, 2
                 ), 0) as doubles_hit_rate,
 
                 100.0 as completion_rate, -- Placeholder
 
                 -- Leg Statistics
                 COUNT(DISTINCT ls.match_id) as total_legs,
-                SUM(CASE WHEN ls.winner_id = @PlayerId THEN 1 ELSE 0 END) as legs_won,
+                COUNT(DISTINCT CASE WHEN ls.winner_id = @PlayerId THEN ls.match_id END) as legs_won,
                 COALESCE(ROUND(AVG(ls.player_darts)::numeric, 2), 0) as average_darts_per_leg,
 
                 -- Tournament Performance
@@ -135,8 +140,9 @@ public class StatsRepo : IStatsRepo
             FROM player_matches pm
             JOIN player p ON p.id = @PlayerId
             LEFT JOIN leg_stats ls ON ls.match_id = pm.id
-            LEFT JOIN throw_stats ts ON true
-            GROUP BY p.name;
+            CROSS JOIN throw_stats_agg tsa
+            GROUP BY p.name, tsa.avg_score, tsa.median_score, tsa.max_score, tsa.min_score,
+                     tsa.checkout_attempts, tsa.checkout_opportunities, tsa.doubles_hit, tsa.total_throws;
         ";
 
         return await connection.QueryFirstOrDefaultAsync<PlayerStatistics>(
@@ -233,18 +239,32 @@ public class StatsRepo : IStatsRepo
         using var connection = _connectionFactory.CreateConnection();
 
         var query = @"
-            WITH tournament_matches AS (
-                SELECT
-                    ms.*,
-                    l.home_player_darts_thrown,
-                    l.away_player_darts_thrown,
-                    l.winner_id
+            WITH tournament_players AS (
+                SELECT DISTINCT home_player_id as player_id
+                FROM match_summary
+                WHERE tournament_id = @TournamentId
+                UNION
+                SELECT DISTINCT away_player_id as player_id
+                FROM match_summary
+                WHERE tournament_id = @TournamentId
+            ),
+            tournament_matches AS (
+                SELECT ms.id, ms.home_player_id, ms.away_player_id
                 FROM match_summary ms
-                LEFT JOIN leg l ON l.match_id = ms.id
                 WHERE ms.tournament_id = @TournamentId
             ),
-            throw_data AS (
-                SELECT ld.score, ld.darts_used
+            tournament_legs AS (
+                SELECT l.id, l.home_player_darts_thrown, l.away_player_darts_thrown
+                FROM leg l
+                JOIN match_summary ms ON l.match_id = ms.id
+                WHERE ms.tournament_id = @TournamentId
+            ),
+            throw_data_agg AS (
+                SELECT
+                    ROUND(AVG(ld.score)::numeric, 2) as avg_score,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ld.score) as median_score,
+                    MAX(ld.score) as max_score,
+                    MIN(CASE WHEN ld.score > 0 THEN ld.score END) as min_score
                 FROM leg_detail ld
                 JOIN leg l ON ld.leg_id = l.id
                 JOIN match_summary ms ON l.match_id = ms.id
@@ -256,22 +276,24 @@ public class StatsRepo : IStatsRepo
                 'Tournament' as tournament_name, -- Update with actual name field
 
                 -- Participation
-                COUNT(DISTINCT COALESCE(tm.home_player_id, 0)) +
-                COUNT(DISTINCT COALESCE(tm.away_player_id, 0)) as total_players,
-                COUNT(DISTINCT tm.id) as total_matches,
-                COUNT(*) as total_legs,
+                (SELECT COUNT(*) FROM tournament_players) as total_players,
+                (SELECT COUNT(*) FROM tournament_matches) as total_matches,
+                (SELECT COUNT(*) FROM tournament_legs) as total_legs,
 
                 -- Scoring Metrics
-                COALESCE(ROUND(AVG(td.score)::numeric, 2), 0) as average_score,
-                COALESCE(ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY td.score)::numeric, 2), 0) as median_score,
-                COALESCE(MAX(td.score), 0) as highest_score,
-                COALESCE(MIN(CASE WHEN td.score > 0 THEN td.score END), 0) as lowest_score,
+                COALESCE(tda.avg_score, 0) as average_score,
+                COALESCE(ROUND(tda.median_score::numeric, 2), 0) as median_score,
+                COALESCE(tda.max_score, 0) as highest_score,
+                COALESCE(tda.min_score, 0) as lowest_score,
 
                 -- Performance Metrics (placeholders)
                 0 as average_checkout_percentage,
                 0 as average_doubles_hit_rate,
                 100.0 as average_completion_rate,
-                COALESCE(ROUND(AVG((tm.home_player_darts_thrown + tm.away_player_darts_thrown) / 2.0)::numeric, 2), 0) as average_darts_per_leg,
+                COALESCE((
+                    SELECT ROUND(AVG((home_player_darts_thrown + away_player_darts_thrown) / 2.0)::numeric, 2)
+                    FROM tournament_legs
+                ), 0) as average_darts_per_leg,
 
                 -- Winner (placeholder - needs tournament winner logic)
                 NULL::int as winner_id,
@@ -282,10 +304,8 @@ public class StatsRepo : IStatsRepo
                 NULL::interval as total_play_time
 
             FROM tournament t
-            LEFT JOIN tournament_matches tm ON true
-            LEFT JOIN throw_data td ON true
-            WHERE t.id = @TournamentId
-            GROUP BY t.id, t.date;
+            CROSS JOIN throw_data_agg tda
+            WHERE t.id = @TournamentId;
         ";
 
         return await connection.QueryFirstOrDefaultAsync<TournamentStatistics>(
@@ -428,7 +448,7 @@ public class StatsRepo : IStatsRepo
                     BackgroundColor = "rgba(79, 70, 229, 0.1)",
                     BorderWidth = 2,
                     Fill = true,
-                    Tension = "0.4"
+                    Tension = 0.4m
                 }
             }
         };
