@@ -14,23 +14,18 @@ namespace McIntoshHotshots.Tests.Contract;
 /// TDD: These tests should FAIL until the controller is implemented
 /// </summary>
 [TestClass]
-public class PlayerMetricsContractTests
+public class PlayerMetricsContractTests : ContractTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static HttpClient? _client;
-
     [ClassInitialize]
     public static void ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        _client = _factory.CreateClient();
+        InitializeTestFactory();
     }
 
     [ClassCleanup]
     public static void ClassCleanup()
     {
-        _client?.Dispose();
-        _factory?.Dispose();
+        CleanupTestFactory();
     }
 
     [TestMethod]
@@ -40,7 +35,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -65,7 +60,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -92,7 +87,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics?includeTrends=false");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics?includeTrends=false");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -116,7 +111,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics?includeTrends=true");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics?includeTrends=true");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -151,7 +146,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act - No includeTrends parameter specified
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -175,7 +170,7 @@ public class PlayerMetricsContractTests
         int nonExistentPlayerId = 999999;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{nonExistentPlayerId}/metrics");
+        var response = await Client!.GetAsync($"/api/stats/player/{nonExistentPlayerId}/metrics");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
@@ -198,7 +193,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -227,7 +222,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -268,7 +263,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics?includeTrends=true");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics?includeTrends=true");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -295,7 +290,7 @@ public class PlayerMetricsContractTests
         string invalidBoolean = "notABoolean";
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics?includeTrends={invalidBoolean}");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics?includeTrends={invalidBoolean}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -316,7 +311,7 @@ public class PlayerMetricsContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/metrics");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/metrics");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);

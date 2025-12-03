@@ -14,23 +14,18 @@ namespace McIntoshHotshots.Tests.Contract;
 /// TDD: These tests should FAIL until the controller is implemented
 /// </summary>
 [TestClass]
-public class TournamentTimeSeriesContractTests
+public class TournamentTimeSeriesContractTests : ContractTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static HttpClient? _client;
-
     [ClassInitialize]
     public static void ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        _client = _factory.CreateClient();
+        InitializeTestFactory();
     }
 
     [ClassCleanup]
     public static void ClassCleanup()
     {
-        _client?.Dispose();
-        _factory?.Dispose();
+        CleanupTestFactory();
     }
 
     [TestMethod]
@@ -40,7 +35,7 @@ public class TournamentTimeSeriesContractTests
         int tournamentId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -67,7 +62,7 @@ public class TournamentTimeSeriesContractTests
         string period = "weekly";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/tournament/{tournamentId}/timeseries?period={period}");
 
         // Assert
@@ -90,7 +85,7 @@ public class TournamentTimeSeriesContractTests
         string metric = "participant_count";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/tournament/{tournamentId}/timeseries?metric={metric}");
 
         // Assert
@@ -115,7 +110,7 @@ public class TournamentTimeSeriesContractTests
         foreach (var metric in validMetrics)
         {
             // Act
-            var response = await _client!.GetAsync(
+            var response = await Client!.GetAsync(
                 $"/api/stats/tournament/{tournamentId}/timeseries?metric={metric}");
 
             // Assert
@@ -141,7 +136,7 @@ public class TournamentTimeSeriesContractTests
         foreach (var period in validPeriods)
         {
             // Act
-            var response = await _client!.GetAsync(
+            var response = await Client!.GetAsync(
                 $"/api/stats/tournament/{tournamentId}/timeseries?period={period}");
 
             // Assert
@@ -165,7 +160,7 @@ public class TournamentTimeSeriesContractTests
         string invalidPeriod = "yearly"; // Not valid for tournament timeseries
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/tournament/{tournamentId}/timeseries?period={invalidPeriod}");
 
         // Assert
@@ -188,7 +183,7 @@ public class TournamentTimeSeriesContractTests
         string invalidMetric = "invalid_metric";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/tournament/{tournamentId}/timeseries?metric={invalidMetric}");
 
         // Assert
@@ -202,7 +197,7 @@ public class TournamentTimeSeriesContractTests
         int nonExistentTournamentId = 999999;
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/tournament/{nonExistentTournamentId}/timeseries");
 
         // Assert
@@ -226,7 +221,7 @@ public class TournamentTimeSeriesContractTests
         int tournamentId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -256,7 +251,7 @@ public class TournamentTimeSeriesContractTests
         int tournamentId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -280,7 +275,7 @@ public class TournamentTimeSeriesContractTests
         int tournamentId = 1;
 
         // Act - No period parameter specified
-        var response = await _client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -301,7 +296,7 @@ public class TournamentTimeSeriesContractTests
         int tournamentId = 1;
 
         // Act - No metric parameter specified
-        var response = await _client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -322,7 +317,7 @@ public class TournamentTimeSeriesContractTests
         int tournamentId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/tournament/{tournamentId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
