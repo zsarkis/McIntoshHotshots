@@ -15,23 +15,18 @@ namespace McIntoshHotshots.Tests.Contract;
 /// TDD: These tests should FAIL until the controller is implemented
 /// </summary>
 [TestClass]
-public class ChartDataContractTests
+public class ChartDataContractTests : ContractTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static HttpClient? _client;
-
     [ClassInitialize]
     public static void ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        _client = _factory.CreateClient();
+        InitializeTestFactory();
     }
 
     [ClassCleanup]
     public static void ClassCleanup()
     {
-        _client?.Dispose();
-        _factory?.Dispose();
+        CleanupTestFactory();
     }
 
     private StringContent CreateJsonContent(object data)
@@ -58,7 +53,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -91,7 +86,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -111,7 +106,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -130,7 +125,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -169,7 +164,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -209,7 +204,7 @@ public class ChartDataContractTests
             };
 
             // Act
-            var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+            var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
             // Assert
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode,
@@ -241,7 +236,7 @@ public class ChartDataContractTests
             };
 
             // Act
-            var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+            var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
             // Assert
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode,
@@ -262,7 +257,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -289,7 +284,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -307,7 +302,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -326,7 +321,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -345,7 +340,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -369,7 +364,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -389,7 +384,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -413,7 +408,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -426,7 +421,7 @@ public class ChartDataContractTests
         var invalidJson = new StringContent("{invalid json}", Encoding.UTF8, "application/json");
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", invalidJson);
+        var response = await Client!.PostAsync("/api/stats/chart-data", invalidJson);
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -439,7 +434,7 @@ public class ChartDataContractTests
         var emptyContent = new StringContent("", Encoding.UTF8, "application/json");
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", emptyContent);
+        var response = await Client!.PostAsync("/api/stats/chart-data", emptyContent);
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -458,7 +453,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -490,7 +485,7 @@ public class ChartDataContractTests
         };
 
         // Act
-        var response = await _client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
+        var response = await Client!.PostAsync("/api/stats/chart-data", CreateJsonContent(request));
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);

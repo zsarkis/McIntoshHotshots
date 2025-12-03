@@ -14,23 +14,18 @@ namespace McIntoshHotshots.Tests.Contract;
 /// TDD: These tests should FAIL until the controller is implemented
 /// </summary>
 [TestClass]
-public class HeadToHeadContractTests
+public class HeadToHeadContractTests : ContractTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static HttpClient? _client;
-
     [ClassInitialize]
     public static void ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        _client = _factory.CreateClient();
+        InitializeTestFactory();
     }
 
     [ClassCleanup]
     public static void ClassCleanup()
     {
-        _client?.Dispose();
-        _factory?.Dispose();
+        CleanupTestFactory();
     }
 
     [TestMethod]
@@ -41,7 +36,7 @@ public class HeadToHeadContractTests
         int player2Id = 2;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
+        var response = await Client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -72,7 +67,7 @@ public class HeadToHeadContractTests
         int player2Id = 2;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
+        var response = await Client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -104,7 +99,7 @@ public class HeadToHeadContractTests
         int player2Id = 2;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
+        var response = await Client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -129,7 +124,7 @@ public class HeadToHeadContractTests
         int player2Id = 2;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
+        var response = await Client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -165,7 +160,7 @@ public class HeadToHeadContractTests
         int player2Id = 2;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
+        var response = await Client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -196,7 +191,7 @@ public class HeadToHeadContractTests
         string tournamentType = "Singles";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/headtohead/{player1Id}/{player2Id}?tournamentType={tournamentType}");
 
         // Assert
@@ -212,7 +207,7 @@ public class HeadToHeadContractTests
         int recentGames = 5;
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/headtohead/{player1Id}/{player2Id}?recentGames={recentGames}");
 
         // Assert
@@ -241,7 +236,7 @@ public class HeadToHeadContractTests
         int player2Id = 2;
 
         // Act - No recentGames parameter specified
-        var response = await _client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
+        var response = await Client!.GetAsync($"/api/stats/headtohead/{player1Id}/{player2Id}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -270,7 +265,7 @@ public class HeadToHeadContractTests
         int invalidRecentGames = 0; // Minimum is 1
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/headtohead/{player1Id}/{player2Id}?recentGames={invalidRecentGames}");
 
         // Assert
@@ -286,7 +281,7 @@ public class HeadToHeadContractTests
         int invalidRecentGames = 51; // Maximum is 50
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/headtohead/{player1Id}/{player2Id}?recentGames={invalidRecentGames}");
 
         // Assert
@@ -300,7 +295,7 @@ public class HeadToHeadContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/headtohead/{playerId}/{playerId}");
+        var response = await Client!.GetAsync($"/api/stats/headtohead/{playerId}/{playerId}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -327,7 +322,7 @@ public class HeadToHeadContractTests
         int validPlayer2Id = 2;
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/headtohead/{nonExistentPlayer1Id}/{validPlayer2Id}");
 
         // Assert
@@ -352,7 +347,7 @@ public class HeadToHeadContractTests
         int nonExistentPlayer2Id = 999999;
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/headtohead/{validPlayer1Id}/{nonExistentPlayer2Id}");
 
         // Assert
@@ -367,7 +362,7 @@ public class HeadToHeadContractTests
         int nonExistentPlayer2Id = 888888;
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/headtohead/{nonExistentPlayer1Id}/{nonExistentPlayer2Id}");
 
         // Assert
@@ -384,7 +379,7 @@ public class HeadToHeadContractTests
         int recentGames = 20;
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/headtohead/{player1Id}/{player2Id}?tournamentType={tournamentType}&recentGames={recentGames}");
 
         // Assert

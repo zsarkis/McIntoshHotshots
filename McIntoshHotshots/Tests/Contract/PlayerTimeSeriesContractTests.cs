@@ -14,23 +14,18 @@ namespace McIntoshHotshots.Tests.Contract;
 /// TDD: These tests should FAIL until the controller is implemented
 /// </summary>
 [TestClass]
-public class PlayerTimeSeriesContractTests
+public class PlayerTimeSeriesContractTests : ContractTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static HttpClient? _client;
-
     [ClassInitialize]
     public static void ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        _client = _factory.CreateClient();
+        InitializeTestFactory();
     }
 
     [ClassCleanup]
     public static void ClassCleanup()
     {
-        _client?.Dispose();
-        _factory?.Dispose();
+        CleanupTestFactory();
     }
 
     [TestMethod]
@@ -40,7 +35,7 @@ public class PlayerTimeSeriesContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -67,7 +62,7 @@ public class PlayerTimeSeriesContractTests
         string period = "monthly";
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/timeseries?period={period}");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/timeseries?period={period}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -89,7 +84,7 @@ public class PlayerTimeSeriesContractTests
         string metric = "completion_rate";
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/timeseries?metric={metric}");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/timeseries?metric={metric}");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -112,7 +107,7 @@ public class PlayerTimeSeriesContractTests
         string endDate = "2024-12-31";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/player/{playerId}/timeseries?startDate={startDate}&endDate={endDate}");
 
         // Assert
@@ -135,7 +130,7 @@ public class PlayerTimeSeriesContractTests
         string tournamentType = "Singles";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/player/{playerId}/timeseries?tournamentType={tournamentType}");
 
         // Assert
@@ -154,7 +149,7 @@ public class PlayerTimeSeriesContractTests
         string tournamentType = "Doubles";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/player/{playerId}/timeseries?period={period}&metric={metric}&startDate={startDate}&endDate={endDate}&tournamentType={tournamentType}");
 
         // Assert
@@ -179,7 +174,7 @@ public class PlayerTimeSeriesContractTests
         string invalidPeriod = "invalidPeriod";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/player/{playerId}/timeseries?period={invalidPeriod}");
 
         // Assert
@@ -204,7 +199,7 @@ public class PlayerTimeSeriesContractTests
         string invalidMetric = "invalidMetric";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/player/{playerId}/timeseries?metric={invalidMetric}");
 
         // Assert
@@ -218,7 +213,7 @@ public class PlayerTimeSeriesContractTests
         int nonExistentPlayerId = 999999;
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/player/{nonExistentPlayerId}/timeseries");
 
         // Assert
@@ -241,7 +236,7 @@ public class PlayerTimeSeriesContractTests
         string invalidDate = "not-a-date";
 
         // Act
-        var response = await _client!.GetAsync(
+        var response = await Client!.GetAsync(
             $"/api/stats/player/{playerId}/timeseries?startDate={invalidDate}");
 
         // Assert
@@ -255,7 +250,7 @@ public class PlayerTimeSeriesContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -286,7 +281,7 @@ public class PlayerTimeSeriesContractTests
         int playerId = 1;
 
         // Act
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -311,7 +306,7 @@ public class PlayerTimeSeriesContractTests
         int playerId = 1;
 
         // Act - No period parameter specified
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -332,7 +327,7 @@ public class PlayerTimeSeriesContractTests
         int playerId = 1;
 
         // Act - No metric parameter specified
-        var response = await _client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
+        var response = await Client!.GetAsync($"/api/stats/player/{playerId}/timeseries");
 
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
