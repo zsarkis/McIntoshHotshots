@@ -12,50 +12,31 @@ namespace McIntoshHotshots.Tests.Integration;
 /// TDD: These tests MUST FAIL until the views and controllers are fully implemented
 /// </summary>
 [TestClass]
-public class PlayerTimeSeriesViewIntegrationTests
+public class PlayerTimeSeriesViewIntegrationTests : IntegrationTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static IBrowser? _browser;
-    private static string? _baseUrl;
-
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        var client = _factory.CreateClient();
-        _baseUrl = client.BaseAddress?.ToString().TrimEnd('/');
-
-        // Launch browser for integration testing
-        var browserFetcher = new BrowserFetcher();
-        await browserFetcher.DownloadAsync();
-        _browser = await Puppeteer.LaunchAsync(new LaunchOptions
-        {
-            Headless = true,
-            Args = new[] { "--no-sandbox", "--disable-setuid-sandbox" }
-        });
+        await InitializeTestInfrastructure();
     }
 
     [ClassCleanup]
     public static async Task ClassCleanup()
     {
-        if (_browser != null)
-        {
-            await _browser.CloseAsync();
-        }
-        _factory?.Dispose();
+        await CleanupTestInfrastructure();
     }
 
     [TestMethod]
     public async Task PlayerTimeSeriesView_NavigateToPlayerStats_PageLoadsSuccessfully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
 
             // Assert
             Assert.IsNotNull(response, "Page response should not be null");
@@ -73,13 +54,13 @@ public class PlayerTimeSeriesViewIntegrationTests
     public async Task PlayerTimeSeriesView_ChartLoadsWithDefaultWeeklyView_DisplaysChart()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
 
             // Wait for chart to load (with timeout)
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
@@ -102,13 +83,13 @@ public class PlayerTimeSeriesViewIntegrationTests
     public async Task PlayerTimeSeriesView_MetricToggle_SwitchesBetweenAverageAndMedian()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync("[data-testid='metric-toggle']", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -144,13 +125,13 @@ public class PlayerTimeSeriesViewIntegrationTests
     public async Task PlayerTimeSeriesView_PeriodSelector_ChangesChartGranularity()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync("[data-testid='period-selector']", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -187,13 +168,13 @@ public class PlayerTimeSeriesViewIntegrationTests
     public async Task PlayerTimeSeriesView_DateRangeSelection_FiltersDataCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync("[data-testid='start-date']", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -226,13 +207,13 @@ public class PlayerTimeSeriesViewIntegrationTests
     public async Task PlayerTimeSeriesView_TournamentTypeFilter_ShowsFilteredData()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync("[data-testid='tournament-type-filter']", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -257,13 +238,13 @@ public class PlayerTimeSeriesViewIntegrationTests
     public async Task PlayerTimeSeriesView_ExtraMetrics_AllMetricsPreserved()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -289,13 +270,13 @@ public class PlayerTimeSeriesViewIntegrationTests
     public async Task PlayerTimeSeriesView_InsufficientData_ShowsAppropriateMessage()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerIdWithNoData = 999999; // Assuming this player doesn't exist or has no data
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerIdWithNoData}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerIdWithNoData}/stats");
             await Task.Delay(1000); // Wait for page to load
 
             var pageContent = await page.GetContentAsync();
@@ -319,14 +300,14 @@ public class PlayerTimeSeriesViewIntegrationTests
     public async Task PlayerTimeSeriesView_ChartRenderingPerformance_LoadsWithin500ms()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
             var startTime = DateTime.UtcNow;
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000

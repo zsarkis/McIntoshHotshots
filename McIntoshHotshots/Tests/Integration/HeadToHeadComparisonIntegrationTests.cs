@@ -12,51 +12,32 @@ namespace McIntoshHotshots.Tests.Integration;
 /// TDD: These tests MUST FAIL until the views and controllers are fully implemented
 /// </summary>
 [TestClass]
-public class HeadToHeadComparisonIntegrationTests
+public class HeadToHeadComparisonIntegrationTests : IntegrationTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static IBrowser? _browser;
-    private static string? _baseUrl;
-
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        var client = _factory.CreateClient();
-        _baseUrl = client.BaseAddress?.ToString().TrimEnd('/');
-
-        // Launch browser for integration testing
-        var browserFetcher = new BrowserFetcher();
-        await browserFetcher.DownloadAsync();
-        _browser = await Puppeteer.LaunchAsync(new LaunchOptions
-        {
-            Headless = true,
-            Args = new[] { "--no-sandbox", "--disable-setuid-sandbox" }
-        });
+        await InitializeTestInfrastructure();
     }
 
     [ClassCleanup]
     public static async Task ClassCleanup()
     {
-        if (_browser != null)
-        {
-            await _browser.CloseAsync();
-        }
-        _factory?.Dispose();
+        await CleanupTestInfrastructure();
     }
 
     [TestMethod]
     public async Task HeadToHead_NavigateToComparison_PageLoadsSuccessfully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 2;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            var response = await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
 
             // Assert
             Assert.IsNotNull(response, "Page response should not be null");
@@ -74,14 +55,14 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_WinLossRatio_DisplaysCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 2;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
             await page.WaitForSelectorAsync("[data-testid='win-loss-ratio'], .win-loss-ratio", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -108,14 +89,14 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_RecentForm_ShowsLast10Games()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 2;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
             await Task.Delay(1000); // Wait for page to load
 
             var pageContent = await page.GetContentAsync();
@@ -138,14 +119,14 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_ScoreDifferential_ShowsTrends()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 2;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
             await Task.Delay(1000); // Wait for page to load
 
             var pageContent = await page.GetContentAsync();
@@ -168,14 +149,14 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_TournamentTypeBreakdown_ShowsByType()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 2;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
             await Task.Delay(1000); // Wait for page to load
 
             var pageContent = await page.GetContentAsync();
@@ -198,14 +179,14 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_NoMatches_HandlesGracefully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 999999; // Player with no matches against player1
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
             await Task.Delay(1000); // Wait for page to load
 
             var pageContent = await page.GetContentAsync();
@@ -230,14 +211,14 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_PerformanceTrends_DisplayCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 2;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
             await Task.Delay(1000); // Wait for page to load
 
             var pageContent = await page.GetContentAsync();
@@ -262,14 +243,14 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_Chart_RendersSuccessfully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 2;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
 
             // Try to find chart canvas (might be optional depending on data availability)
             try
@@ -303,13 +284,13 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_SamePlayer_HandlesEdgeCase()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act - Compare player with themselves
-            var response = await page.GoToAsync($"{_baseUrl}/stats/headtohead/{playerId}/{playerId}");
+            var response = await page.GoToAsync($"{BaseUrl}/stats/headtohead/{playerId}/{playerId}");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -334,7 +315,7 @@ public class HeadToHeadComparisonIntegrationTests
     public async Task HeadToHead_RenderingPerformance_LoadsWithin500ms()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int player1Id = 1;
         int player2Id = 2;
 
@@ -342,7 +323,7 @@ public class HeadToHeadComparisonIntegrationTests
         {
             // Act
             var startTime = DateTime.UtcNow;
-            await page.GoToAsync($"{_baseUrl}/stats/headtohead/{player1Id}/{player2Id}");
+            await page.GoToAsync($"{BaseUrl}/stats/headtohead/{player1Id}/{player2Id}");
             await Task.Delay(1000); // Wait for initial render
             var endTime = DateTime.UtcNow;
 

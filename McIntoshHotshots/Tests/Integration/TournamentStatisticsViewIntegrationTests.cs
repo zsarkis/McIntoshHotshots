@@ -12,50 +12,31 @@ namespace McIntoshHotshots.Tests.Integration;
 /// TDD: These tests MUST FAIL until the views and controllers are fully implemented
 /// </summary>
 [TestClass]
-public class TournamentStatisticsViewIntegrationTests
+public class TournamentStatisticsViewIntegrationTests : IntegrationTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static IBrowser? _browser;
-    private static string? _baseUrl;
-
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        var client = _factory.CreateClient();
-        _baseUrl = client.BaseAddress?.ToString().TrimEnd('/');
-
-        // Launch browser for integration testing
-        var browserFetcher = new BrowserFetcher();
-        await browserFetcher.DownloadAsync();
-        _browser = await Puppeteer.LaunchAsync(new LaunchOptions
-        {
-            Headless = true,
-            Args = new[] { "--no-sandbox", "--disable-setuid-sandbox" }
-        });
+        await InitializeTestInfrastructure();
     }
 
     [ClassCleanup]
     public static async Task ClassCleanup()
     {
-        if (_browser != null)
-        {
-            await _browser.CloseAsync();
-        }
-        _factory?.Dispose();
+        await CleanupTestInfrastructure();
     }
 
     [TestMethod]
     public async Task TournamentStatsView_NavigateToTournamentStats_PageLoadsSuccessfully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentId = 1;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentId}/stats");
+            var response = await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentId}/stats");
 
             // Assert
             Assert.IsNotNull(response, "Page response should not be null");
@@ -73,13 +54,13 @@ public class TournamentStatisticsViewIntegrationTests
     public async Task TournamentStatsView_TimeSeriesChart_LoadsSuccessfully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentId}/stats");
+            await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentId}/stats");
 
             // Wait for chart to load
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
@@ -102,13 +83,13 @@ public class TournamentStatisticsViewIntegrationTests
     public async Task TournamentStatsView_ParticipantTrendAnalysis_DisplaysCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentId}/stats");
+            await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentId}/stats");
             await page.WaitForSelectorAsync(".chart-container", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -134,13 +115,13 @@ public class TournamentStatisticsViewIntegrationTests
     public async Task TournamentStatsView_AverageScoreEvolution_DisplaysOverTime()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentId}/stats");
+            await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentId}/stats");
             await page.WaitForSelectorAsync(".chart-container", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -166,13 +147,13 @@ public class TournamentStatisticsViewIntegrationTests
     public async Task TournamentStatsView_CompletionRateTracking_DisplaysAccurately()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentId}/stats");
+            await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentId}/stats");
             await page.WaitForSelectorAsync(".chart-container", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -198,13 +179,13 @@ public class TournamentStatisticsViewIntegrationTests
     public async Task TournamentStatsView_ScoreDistribution_ShowsAccurateData()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentId}/stats");
+            await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentId}/stats");
             await page.WaitForSelectorAsync(".chart-container", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -231,13 +212,13 @@ public class TournamentStatisticsViewIntegrationTests
     public async Task TournamentStatsView_MultipleRounds_DataDisplayedOverTime()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentId = 1; // Assuming tournament with 10+ rounds per quickstart.md
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentId}/stats");
+            await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -258,13 +239,13 @@ public class TournamentStatisticsViewIntegrationTests
     public async Task TournamentStatsView_NonExistentTournament_HandlesGracefully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int nonExistentTournamentId = 999999;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/tournaments/{nonExistentTournamentId}/stats");
+            var response = await page.GoToAsync($"{BaseUrl}/tournaments/{nonExistentTournamentId}/stats");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -287,14 +268,14 @@ public class TournamentStatisticsViewIntegrationTests
     public async Task TournamentStatsView_RenderingPerformance_LoadsWithin500ms()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentId = 1;
 
         try
         {
             // Act
             var startTime = DateTime.UtcNow;
-            await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentId}/stats");
+            await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000

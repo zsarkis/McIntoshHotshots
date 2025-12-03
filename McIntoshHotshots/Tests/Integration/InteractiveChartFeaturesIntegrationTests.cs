@@ -12,50 +12,31 @@ namespace McIntoshHotshots.Tests.Integration;
 /// TDD: These tests MUST FAIL until the Chart.js integration is fully implemented
 /// </summary>
 [TestClass]
-public class InteractiveChartFeaturesIntegrationTests
+public class InteractiveChartFeaturesIntegrationTests : IntegrationTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static IBrowser? _browser;
-    private static string? _baseUrl;
-
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        var client = _factory.CreateClient();
-        _baseUrl = client.BaseAddress?.ToString().TrimEnd('/');
-
-        // Launch browser for integration testing
-        var browserFetcher = new BrowserFetcher();
-        await browserFetcher.DownloadAsync();
-        _browser = await Puppeteer.LaunchAsync(new LaunchOptions
-        {
-            Headless = true,
-            Args = new[] { "--no-sandbox", "--disable-setuid-sandbox" }
-        });
+        await InitializeTestInfrastructure();
     }
 
     [ClassCleanup]
     public static async Task ClassCleanup()
     {
-        if (_browser != null)
-        {
-            await _browser.CloseAsync();
-        }
-        _factory?.Dispose();
+        await CleanupTestInfrastructure();
     }
 
     [TestMethod]
     public async Task ChartFeatures_ChartJsLibrary_LoadsSuccessfully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -77,13 +58,13 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_ZoomFunctionality_WorksSmoothly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -123,13 +104,13 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_PanFunctionality_RespondsCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -165,13 +146,13 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_DataPointTooltips_ShowAccurateData()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -208,13 +189,13 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_LegendInteraction_TogglesDataSeries()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -249,7 +230,7 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_ResponsiveBehavior_AdaptsToWindowResize()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
@@ -261,7 +242,7 @@ public class InteractiveChartFeaturesIntegrationTests
                 Height = 1080
             });
 
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -302,13 +283,13 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_LargeDataset_PerformsWell()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act - Load yearly view which should have 365+ data points per quickstart.md
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats?period=yearly");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats?period=yearly");
 
             var startTime = DateTime.UtcNow;
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
@@ -351,7 +332,7 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_MemoryUsage_NoLeaks()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
@@ -359,7 +340,7 @@ public class InteractiveChartFeaturesIntegrationTests
             // Act - Load and reload chart multiple times
             for (int i = 0; i < 3; i++)
             {
-                await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+                await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
                 await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
                 {
                     Timeout = 5000
@@ -385,7 +366,7 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_MobileDevice_WorksCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
@@ -400,7 +381,7 @@ public class InteractiveChartFeaturesIntegrationTests
             });
             await page.SetUserAgentAsync("Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15");
 
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
             await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
             {
                 Timeout = 5000
@@ -433,7 +414,7 @@ public class InteractiveChartFeaturesIntegrationTests
     public async Task ChartFeatures_MultipleBrowsers_WorkConsistently()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
@@ -449,7 +430,7 @@ public class InteractiveChartFeaturesIntegrationTests
             foreach (var userAgent in userAgents)
             {
                 await page.SetUserAgentAsync(userAgent);
-                await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+                await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
                 await page.WaitForSelectorAsync(".chart-container canvas", new WaitForSelectorOptions
                 {
                     Timeout = 5000

@@ -12,50 +12,31 @@ namespace McIntoshHotshots.Tests.Integration;
 /// TDD: These tests MUST FAIL until proper error handling is implemented
 /// </summary>
 [TestClass]
-public class DataValidationEdgeCasesIntegrationTests
+public class DataValidationEdgeCasesIntegrationTests : IntegrationTestBase
 {
-    private static WebApplicationFactory<Program>? _factory;
-    private static IBrowser? _browser;
-    private static string? _baseUrl;
-
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        _factory = new WebApplicationFactory<Program>();
-        var client = _factory.CreateClient();
-        _baseUrl = client.BaseAddress?.ToString().TrimEnd('/');
-
-        // Launch browser for integration testing
-        var browserFetcher = new BrowserFetcher();
-        await browserFetcher.DownloadAsync();
-        _browser = await Puppeteer.LaunchAsync(new LaunchOptions
-        {
-            Headless = true,
-            Args = new[] { "--no-sandbox", "--disable-setuid-sandbox" }
-        });
+        await InitializeTestInfrastructure();
     }
 
     [ClassCleanup]
     public static async Task ClassCleanup()
     {
-        if (_browser != null)
-        {
-            await _browser.CloseAsync();
-        }
-        _factory?.Dispose();
+        await CleanupTestInfrastructure();
     }
 
     [TestMethod]
     public async Task EdgeCases_PlayerWithLessThan3DataPoints_ShowsAppropriateMessage()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerIdWithLimitedData = 2; // Assuming this player has < 3 data points
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerIdWithLimitedData}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerIdWithLimitedData}/stats");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -79,13 +60,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_InvalidPlayerId_Returns404WithUserFriendlyMessage()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int invalidPlayerId = 999999;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{invalidPlayerId}/stats");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{invalidPlayerId}/stats");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -109,13 +90,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_InvalidDateRange_ShowsValidationError()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act - Navigate and try to set invalid date range (end before start)
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats");
 
             try
             {
@@ -166,13 +147,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_VeryLargeDateRange_ShowsWarningOrPagination()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act - Try to load data for >2 years
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats?startDate=2020-01-01&endDate=2024-12-31");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats?startDate=2020-01-01&endDate=2024-12-31");
             await Task.Delay(2000);
 
             var pageContent = await page.GetContentAsync();
@@ -196,13 +177,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_NoTournamentData_HandledGracefully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int tournamentIdWithNoData = 999999;
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/tournaments/{tournamentIdWithNoData}/stats");
+            await page.GoToAsync($"{BaseUrl}/tournaments/{tournamentIdWithNoData}/stats");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -226,13 +207,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_NegativePlayerId_HandledCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int negativePlayerId = -1;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{negativePlayerId}/stats");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{negativePlayerId}/stats");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -256,13 +237,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_NonNumericPlayerId_ReturnsError()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         string invalidId = "abc";
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{invalidId}/stats");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{invalidId}/stats");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -286,13 +267,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_InvalidPeriodParameter_ShowsError()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats?period=invalid");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats?period=invalid");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -316,13 +297,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_InvalidMetricParameter_ShowsError()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats?metric=invalid_metric");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats?metric=invalid_metric");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -346,13 +327,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_MalformedDateParameter_ShowsError()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats?startDate=not-a-date");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats?startDate=not-a-date");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -376,13 +357,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_ZeroPlayerId_HandledCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int zeroPlayerId = 0;
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{zeroPlayerId}/stats");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{zeroPlayerId}/stats");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -406,7 +387,7 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_FutureDateRange_HandledGracefully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
         string futureStartDate = "2030-01-01";
         string futureEndDate = "2030-12-31";
@@ -414,7 +395,7 @@ public class DataValidationEdgeCasesIntegrationTests
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats?startDate={futureStartDate}&endDate={futureEndDate}");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats?startDate={futureStartDate}&endDate={futureEndDate}");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -438,13 +419,13 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_SQLInjectionAttempt_BlockedSafely()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         string sqlInjection = "1' OR '1'='1";
 
         try
         {
             // Act
-            var response = await page.GoToAsync($"{_baseUrl}/players/{sqlInjection}/stats");
+            var response = await page.GoToAsync($"{BaseUrl}/players/{sqlInjection}/stats");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -472,14 +453,14 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_XSSAttempt_SanitizedCorrectly()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
         string xssAttempt = "<script>alert('xss')</script>";
 
         try
         {
             // Act
-            await page.GoToAsync($"{_baseUrl}/players/{playerId}/stats?tournamentType={xssAttempt}");
+            await page.GoToAsync($"{BaseUrl}/players/{playerId}/stats?tournamentType={xssAttempt}");
             await Task.Delay(1000);
 
             var pageContent = await page.GetContentAsync();
@@ -498,7 +479,7 @@ public class DataValidationEdgeCasesIntegrationTests
     public async Task EdgeCases_ExcessivelyLongQueryString_HandledGracefully()
     {
         // Arrange
-        var page = await _browser!.NewPageAsync();
+        var page = await Browser!.NewPageAsync();
         int playerId = 1;
         string excessiveParam = new string('a', 10000); // 10k characters
 
@@ -506,7 +487,7 @@ public class DataValidationEdgeCasesIntegrationTests
         {
             // Act
             var response = await page.GoToAsync(
-                $"{_baseUrl}/players/{playerId}/stats?param={excessiveParam}",
+                $"{BaseUrl}/players/{playerId}/stats?param={excessiveParam}",
                 new NavigationOptions { Timeout = 10000 }
             );
             await Task.Delay(1000);
